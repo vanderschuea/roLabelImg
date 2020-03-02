@@ -248,7 +248,7 @@ class MainWindow(QMainWindow, WindowMixin):
                           'Ctrl+J', 'edit', u'Move and edit Boxs', enabled=False)
 
         create = action('Create\nRectBox', self.createShape,
-                        'w', 'new', u'Draw a new Box', enabled=False)
+                        'z', 'new', u'Draw a new Box', enabled=False)
 
         createRo = action('Create\nRotatedRBox', self.createRoShape,
                         'e', 'newRo', u'Draw a new RotatedRBox', enabled=False)
