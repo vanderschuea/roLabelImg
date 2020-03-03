@@ -906,6 +906,8 @@ class MainWindow(QMainWindow, WindowMixin):
             self.status("Loaded %s" % os.path.basename(unicodeFilePath))
             self.image = image
             self.filePath = unicodeFilePath
+            pfilepath = Path(self.filePath)
+            self.pcdpath = pfilepath.parents[1] / "pcd" / (pfilepath.stem+".pcd")
             self.canvas.loadPixmap(image)
             if self.labelFile:
                 self.loadLabels(self.labelFile.shapes)
