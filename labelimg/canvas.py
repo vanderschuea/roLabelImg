@@ -11,6 +11,7 @@ except ImportError:
 
 from labelimg.shape import Shape
 from labelimg.lib import distance
+from labelimg.kaspard_utils import project_pcd
 import math
 
 CURSOR_DEFAULT = Qt.ArrowCursor
@@ -817,7 +818,8 @@ class Canvas(QWidget):
         self.drawingPolygon.emit(False)
         self.update()
 
-    def loadPixmap(self, img):
+    def loadPixmap(self, img, filePath):
+        project_pcd(filePath)
         self.pixmap = pmap = QPixmap.fromImage(img)
         nh = round(self.pixmap.height()*0.475)
         self.views = (

@@ -3,3 +3,5 @@ person
 armchair
 sofa
 divers
+table
+nightstand
