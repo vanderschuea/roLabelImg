@@ -7,39 +7,28 @@ import sys
 import subprocess
 
 from functools import partial
+from pathlib import Path
 from collections import defaultdict
 
-try:
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
-except ImportError:
-    # needed for py3+qt4
-    # Ref:
-    # http://pyqt.sourceforge.net/Docs/PyQt4/incompatible_apis.html
-    # http://stackoverflow.com/questions/21217399/pyqt4-qtcore-qvariant-object-instead-of-a-string
-    if sys.version_info.major >= 3:
-        import sip
-        sip.setapi('QVariant', 2)
-    from PyQt4.QtGui import *
-    from PyQt4.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 
 import resources
 # Add internal libs
-dir_name = os.path.abspath(os.path.dirname(__file__))
-libs_path = os.path.join(dir_name, 'libs')
-sys.path.insert(0, libs_path)
-from lib import struct, newAction, newIcon, addActions, fmtShortcut
-from shape import Shape, DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
-from canvas import Canvas
-from zoomWidget import ZoomWidget
-from labelDialog import LabelDialog
-from colorDialog import ColorDialog
-from labelFile import LabelFile, LabelFileError
-from toolBar import ToolBar
-from pascal_voc_io import PascalVocReader
-from pascal_voc_io import XML_EXT
-from ustr import ustr
+
+from labelimg.lib import struct, newAction, newIcon, addActions, fmtShortcut
+from labelimg.shape import Shape, DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
+from labelimg.canvas import Canvas
+from labelimg.zoomWidget import ZoomWidget
+from labelimg.labelDialog import LabelDialog
+from labelimg.colorDialog import ColorDialog
+from labelimg.labelFile import LabelFile, LabelFileError
+from labelimg.toolBar import ToolBar
+from labelimg.kaspard_io import KaspardReader
+from labelimg.pascal_voc_io import PascalVocReader
+from labelimg.pascal_voc_io import XML_EXT
+from labelimg.ustr import ustr
 
 __appname__ = 'labelImg'
 
@@ -460,6 +449,8 @@ class MainWindow(QMainWindow, WindowMixin):
         def xbool(x):
             if isinstance(x, QVariant):
                 return x.toBool()
+            elif type(x) is str:
+                return x.lower() == "true"
             return bool(x)
 
         if xbool(settings.get('advanced', False)):
@@ -1014,18 +1005,30 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.mayContinue():
             self.loadFile(filename)
 
+    
     def scanAllImages(self, folderPath):
-        extensions = ['.jpeg', '.jpg', '.png', '.bmp']
+        extensions = ('.png',)
         images = []
 
-        for root, dirs, files in os.walk(folderPath):
-            for file in files:
-                if file.lower().endswith(tuple(extensions)):
-                    relatviePath = os.path.join(root, file)
-                    path = ustr(os.path.abspath(relatviePath))
-                    images.append(path)
+        for path in (Path(folderPath)/"image").iterdir():
+            if str(path).lower().endswith(extensions):
+                path = str(path.absolute())
+                images.append(path)
         images.sort(key=lambda x: x.lower())
         return images
+    
+    # def scanAllImages(self, folderPath):
+    #     extensions = ['.jpeg', '.jpg', '.png', '.bmp']
+    #     images = []
+
+    #     for root, dirs, files in os.walk(folderPath):
+    #         for file in files:
+    #             if file.lower().endswith(tuple(extensions)):
+    #                 relatviePath = os.path.join(root, file)
+    #                 path = ustr(os.path.abspath(relatviePath))
+    #                 images.append(path)
+    #     images.sort(key=lambda x: x.lower())
+    #     return images
 
     def changeSavedir(self, _value=False):
         if self.defaultSaveDir is not None:
@@ -1279,6 +1282,17 @@ class MainWindow(QMainWindow, WindowMixin):
                     else:
                         self.labelHist.append(line)
 
+    def loadKaspardConfByFilename(self, confPath):
+        if self.filePath is None:
+            return
+        if os.path.isfile(confPath) is False:
+            return
+        
+        kaspardReader = KaspardReader()
+        shapes = kaspardReader.getShapes()
+        self.loadLabels(shapes)
+        self.canvas.verified = kaspardReader.verified
+    
     def loadPascalXMLByFilename(self, xmlPath):
         if self.filePath is None:
             return
