@@ -1,7 +1,5 @@
-ship
-plane
-dog
+bed
 person
-cat
-tv
-car
+armchair
+sofa
+divers
