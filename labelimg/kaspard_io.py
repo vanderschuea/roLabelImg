@@ -13,7 +13,7 @@ class KaspardWriter:
         self.verified = False
     
     def add_bbox(self, cx, cy, w, h, angle, name, difficult=None):
-        robndbox = {'centerX': cx, 'centerY': cy, 'width': w, 'height': h,
+        robndbox = {'centerX': cx, 'centerY': cy, 'width': w, 'length': h,
                     'orientation': angle}
         robndbox['name'] = name
         self.roboxlist.append(robndbox)
@@ -55,28 +55,26 @@ class KaspardReader:
     def parse_conf(self):
         confparser = ConfigParser()
         confparser.optionxform = lambda option: option
+        confparser.read(self.filepath)
         config = {s:dict(confparser.items(s)) for s in confparser.sections()}
-        print(config)
         for skey, section in config.items():
             for key, item in section.items():
                 try:
                     config[skey][key] = float(item)
                 except:
                     pass
-            print(skey)
             if skey in self.OBJECTS:
                 self.addShape(skey, config[skey])
         self.config = config
 
     def getShapes(self):
-        print(self.shapes)
         return self.shapes
 
     def addShape(self, label, box):
         cx = box["centerX"]
         cy = box["centerY"]
         w = box["width"]
-        h = box["height"]
+        h = box["length"]
         angle = box["orientation"]
 
         p0x, p0y = self.rotatePoint(cx, cy, cx - w/2, cy - h/2, -angle)
