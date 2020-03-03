@@ -624,8 +624,9 @@ class Canvas(QWidget):
         return QPointF(x, y)
 
     def outOfPixmap(self, p):
-        w, h = self.pixmap.width(), self.pixmap.height()
-        return not (0 <= p.x() < w and 0 <= p.y() < h)
+        # w, h = self.pixmap.width(), self.pixmap.height()
+        # return not (0 <= p.x() < w and 0 <= p.y() < h)
+        return False
 
     def finalise(self):
         assert self.current
@@ -779,11 +780,11 @@ class Canvas(QWidget):
 
 
     def rotateOutOfBound(self, angle):
-        if self.canOutOfBounding:
-            return False
-        for i, p in enumerate(self.selectedShape.points):
-            if self.outOfPixmap(self.selectedShape.rotatePoint(p,angle)):
-                return True
+        # if self.canOutOfBounding:
+        #     return False
+        # for i, p in enumerate(self.selectedShape.points):
+        #     if self.outOfPixmap(self.selectedShape.rotatePoint(p,angle)):
+        #         return True
         return False
 
     def moveOnePixel(self, direction):
@@ -820,8 +821,9 @@ class Canvas(QWidget):
         self.repaint()
 
     def moveOutOfBound(self, step):
-        points = [p1+p2 for p1, p2 in zip(self.selectedShape.points, [step]*4)]
-        return True in map(self.outOfPixmap, points)
+        # points = [p1+p2 for p1, p2 in zip(self.selectedShape.points, [step]*4)]
+        # return True in map(self.outOfPixmap, points)
+        return False
 
     def setLastLabel(self, text):
         assert text
