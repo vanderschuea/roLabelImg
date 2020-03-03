@@ -12,6 +12,7 @@ except ImportError:
 from labelimg.shape import Shape
 from labelimg.lib import distance
 from labelimg.kaspard_utils import project_pcd
+import numpy as np
 import math
 
 CURSOR_DEFAULT = Qt.ArrowCursor
@@ -536,6 +537,15 @@ class Canvas(QWidget):
         p.drawPixmap(self.pixmap.width()*1.05, 0, self.views[0])
         p.drawPixmap(self.pixmap.width()*1.05, self.pixmap.height()*0.525, self.views[1])
 
+        # draw projection
+        p.setPen(Qt.red)
+        xmin, ymin = np.min(self.pcd[:,0]), np.min(self.pcd[:,1])
+        w, h = self.shape
+        w, h = w/5.0, h/5.0
+        for i in range(len(self.pcd)):
+            x, y = self.pcd[i,:-1]
+            p.drawPoint((x-xmin)*w, (y-ymin)*h)
+
         Shape.scale = self.scale
         for shape in self.shapes:
             if (shape.selected or not self._hideBackround) and self.isVisible(shape):
@@ -819,9 +829,9 @@ class Canvas(QWidget):
         self.update()
 
     def loadPixmap(self, img, filePath):
-        project_pcd(filePath)
+        self.pcd = project_pcd(filePath)
         self.pixmap = pmap = QPixmap.fromImage(img)
-        nh = round(self.pixmap.height()*0.475)
+        nh = round(pmap.height()*0.475)
         self.views = (
             pmap.scaledToHeight(nh, mode=Qt.SmoothTransformation),
             pmap.scaledToHeight(nh, mode=Qt.SmoothTransformation)

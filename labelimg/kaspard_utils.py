@@ -1,5 +1,6 @@
 from kapnet.pointcloud.utils import transform_with_conf
 from kapnet.data.datasets import read_sample
+import numpy as np
 from pathlib import Path
 
 def project_pcd(filePath):
@@ -14,7 +15,11 @@ def project_pcd(filePath):
     pcd = sample["pcd"]["points"]
     cfg = sample["conf"]
     pcd = transform_with_conf(pcd, cfg)
-    print(pcd.shape)
+    pcd = pcd[~np.isnan(pcd[:,0]), :]
+    pcd = pcd[pcd[:,-1]>0.1, :]
+    pcd = np.clip(pcd, -5, 5)
+    return pcd
+
 
 
 
