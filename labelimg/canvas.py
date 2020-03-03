@@ -9,8 +9,8 @@ except ImportError:
 
 #from PyQt4.QtOpenGL import *
 
-from shape import Shape
-from lib import distance
+from labelimg.shape import Shape
+from labelimg.lib import distance
 import math
 
 CURSOR_DEFAULT = Qt.ArrowCursor

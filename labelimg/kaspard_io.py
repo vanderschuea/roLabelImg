@@ -56,15 +56,21 @@ class KaspardReader:
         confparser = ConfigParser()
         confparser.optionxform = lambda option: option
         config = {s:dict(confparser.items(s)) for s in confparser.sections()}
+        print(config)
         for skey, section in config.items():
             for key, item in section.items():
                 try:
                     config[skey][key] = float(item)
                 except:
                     pass
+            print(skey)
             if skey in self.OBJECTS:
                 self.addShape(skey, config[skey])
         self.config = config
+
+    def getShapes(self):
+        print(self.shapes)
+        return self.shapes
 
     def addShape(self, label, box):
         cx = box["centerX"]

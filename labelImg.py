@@ -924,9 +924,10 @@ class MainWindow(QMainWindow, WindowMixin):
                     xmlPath = os.path.join(self.defaultSaveDir, basename)
                     self.loadPascalXMLByFilename(xmlPath)
                 else:
-                    xmlPath = filePath.split(".")[0] + XML_EXT
-                    if os.path.isfile(xmlPath):
-                        self.loadPascalXMLByFilename(xmlPath)
+                    fp = Path(filePath)
+                    kaspardpath = fp.parents[1] / "conf" / (fp.stem+".conf")
+                    if os.path.isfile(kaspardpath):
+                        self.loadKaspardConfByFilename(kaspardpath)
 
             self.setWindowTitle(__appname__ + ' ' + filePath)
 
@@ -1281,13 +1282,13 @@ class MainWindow(QMainWindow, WindowMixin):
                     else:
                         self.labelHist.append(line)
 
-    def loadKaspardConfByFilename(self, confPath):
+    def loadKaspardConfByFilename(self, confpath):
         if self.filePath is None:
             return
-        if os.path.isfile(confPath) is False:
+        if os.path.isfile(confpath) is False:
             return
         
-        kaspardReader = KaspardReader()
+        kaspardReader = KaspardReader(confpath)
         shapes = kaspardReader.getShapes()
         self.loadLabels(shapes)
         self.canvas.verified = kaspardReader.verified

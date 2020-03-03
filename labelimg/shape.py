@@ -9,7 +9,7 @@ except ImportError:
     from PyQt4.QtGui import *
     from PyQt4.QtCore import *
 
-from lib import distance
+from labelimg.lib import distance
 import math
 
 DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
