@@ -19,8 +19,6 @@ CURSOR_DRAW = Qt.CrossCursor
 CURSOR_MOVE = Qt.ClosedHandCursor
 CURSOR_GRAB = Qt.OpenHandCursor
 
-# class Canvas(QGLWidget):
-
 
 class Canvas(QWidget):
     zoomRequest = pyqtSignal(int)
@@ -54,6 +52,7 @@ class Canvas(QWidget):
         self.offsets = QPointF(), QPointF()
         self.scale = 1.0
         self.pixmap = QPixmap()
+        self.views = (QPixmap(), QPixmap())
         self.visible = {}
         self._hideBackround = False
         self.hideBackround = False
@@ -73,6 +72,12 @@ class Canvas(QWidget):
         self.hideNormal = False
         self.canOutOfBounding = False
         self.showCenter = False
+
+    @property
+    def shape(self):
+        w = self.pixmap.width()*1.05+self.views[0].width()
+        h = self.pixmap.height()*1.05
+        return w, h
 
     def enterEvent(self, ev):
         self.overrideCursor(self._cursor)
@@ -138,16 +143,6 @@ class Canvas(QWidget):
 
         # Polygon copy moving.
         if Qt.RightButton & ev.buttons():
-            # print("right button")
-            # if self.selectedShapeCopy and self.prevPoint:
-            #     print("select shape copy")
-            #     self.overrideCursor(CURSOR_MOVE)
-            #     self.boundedMoveShape(self.selectedShapeCopy, pos)
-            #     self.repaint()
-            # elif self.selectedShape:
-            #     print("select shape")
-            #     self.selectedShapeCopy = self.selectedShape.copy()
-            #     self.repaint()
             if self.selectedVertex() and self.selectedShape.isRotated:
                 self.boundedRotateShape(pos)
                 self.shapeMoved.emit()
@@ -158,11 +153,6 @@ class Canvas(QWidget):
         # Polygon/Vertex moving.
         if Qt.LeftButton & ev.buttons():
             if self.selectedVertex():
-                # if self.outOfPixmap(pos):
-                #     print("chule ")
-                #     return
-                # else:
-                # print("meiyou chujie")
                 self.boundedMoveVertex(pos)
                 self.shapeMoved.emit()
                 self.repaint()
@@ -492,30 +482,6 @@ class Canvas(QWidget):
             return True
         return False
 
-
-    def boundedMoveShape2(self, shape, pos):
-        if self.outOfPixmap(pos):
-            return False  # No need to move
-        o1 = pos + self.offsets[0]
-        if self.outOfPixmap(o1):
-            pos -= QPointF(min(0, o1.x()), min(0, o1.y()))
-        o2 = pos + self.offsets[1]
-        if self.outOfPixmap(o2):
-            pos += QPointF(min(0, self.pixmap.width() - o2.x()),
-                           min(0, self.pixmap.height() - o2.y()))
-        # The next line tracks the new position of the cursor
-        # relative to the shape, but also results in making it
-        # a bit "shaky" when nearing the border and allows it to
-        # go outside of the shape's area for some reason. XXX
-        #self.calculateOffsets(self.selectedShape, pos)
-        dp = pos - self.prevPoint
-        if dp:
-            shape.moveBy(dp)
-            self.prevPoint = pos
-            shape.close()
-            return True
-        return False
-
     def deSelectShape(self):
         if self.selectedShape:
             self.selectedShape.selected = False
@@ -566,6 +532,9 @@ class Canvas(QWidget):
         p.translate(self.offsetToCenter())
 
         p.drawPixmap(0, 0, self.pixmap)
+        p.drawPixmap(self.pixmap.width()*1.05, 0, self.views[0])
+        p.drawPixmap(self.pixmap.width()*1.05, self.pixmap.height()*0.525, self.views[1])
+
         Shape.scale = self.scale
         for shape in self.shapes:
             if (shape.selected or not self._hideBackround) and self.isVisible(shape):
@@ -617,7 +586,8 @@ class Canvas(QWidget):
     def offsetToCenter(self):
         s = self.scale
         area = super(Canvas, self).size()
-        w, h = self.pixmap.width() * s, self.pixmap.height() * s
+        w, h = self.shape
+        w, h = w*s, h*s
         aw, ah = area.width(), area.height()
         x = (aw - w) / (2 * s) if aw > w else 0
         y = (ah - h) / (2 * s) if ah > h else 0
@@ -772,8 +742,8 @@ class Canvas(QWidget):
             self.hideNormal = not self.hideNormal
             self.hideNRect.emit(self.hideNormal)
             self.update()
-        elif key == Qt.Key_O:
-            self.canOutOfBounding = not self.canOutOfBounding
+        # elif key == Qt.Key_O:
+        #     self.canOutOfBounding = not self.canOutOfBounding
         elif key == Qt.Key_B:
             self.showCenter = not self.showCenter
             self.update()
@@ -847,8 +817,13 @@ class Canvas(QWidget):
         self.drawingPolygon.emit(False)
         self.update()
 
-    def loadPixmap(self, pixmap):
-        self.pixmap = pixmap
+    def loadPixmap(self, img):
+        self.pixmap = pmap = QPixmap.fromImage(img)
+        nh = round(self.pixmap.height()*0.475)
+        self.views = (
+            pmap.scaledToHeight(nh, mode=Qt.SmoothTransformation),
+            pmap.scaledToHeight(nh, mode=Qt.SmoothTransformation)
+        )
         self.shapes = []
         self.repaint()
 
@@ -872,4 +847,5 @@ class Canvas(QWidget):
     def resetState(self):
         self.restoreCursor()
         self.pixmap = None
+        self.views = (None, None)
         self.update()
