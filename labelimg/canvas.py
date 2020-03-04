@@ -524,36 +524,27 @@ class Canvas(QWidget):
         if not self.boundedMoveShape(shape, point - offset):
             self.boundedMoveShape(shape, point + offset)
 
-    def paintSegmentation(self):
+    def paintEvent(self, event):
+        if not self.pixmap:
+            return super(Canvas, self).paintEvent(event)
+        
+        # Compute segmentation
         visible_shapes = [
             shape for shape in self.shapes if\
                 (shape.selected or not self._hideBackround) and self.isVisible(shape)
         ]
-        simg, self.seg_pixels = segment_img(self.pixmap_sample, visible_shapes, self.shape[1])
-        # Method 1
-        # h,w,c = simg.shape
-        # simg = QImage(simg, w, h, w*3, QImage.Format_RGB888)
-        # simg = QPixmap(simg)
-        # self.views = (simg, self.views[1])
+        self.seg_image, self.seg_pixels = segment_img(self.pixmap_sample, visible_shapes, self.shape[1])
 
-        # Method 2 (should be slightly faster)
-        # xoff = self.pixmap.height()*2.05*2
-        # yoff = self.pixmap.height()*1.05
-        # p.setPen(Qt.red)
-        # for xp in ok:
-        #     i,j = xp
-        #     p.drawPoint(j+xoff, i+yoff)
-
-    def paintEvent(self, event):
-        if not self.pixmap:
-            return super(Canvas, self).paintEvent(event)
-
-        # seg_thread = threading.Thread(name="compute_seg", target=self.paintSegmentation)
-        # seg_thread.start()
-        self.paintSegmentation()
+        # -- Method 1: Draw image w/ segmentation
+        simg = self.seg_image
+        h,w,c = simg.shape
+        simg = QImage(simg, w, h, w*3, QImage.Format_RGB888)
+        simg = QPixmap(simg)
+        self.views = (simg, self.views[1])
 
         # Paint rest of the data
         p = self._painter
+
         # Recompute views
         p.begin(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -578,7 +569,7 @@ class Canvas(QWidget):
             p.drawPoint(x*pcdh, y*pcdh)
 
         Shape.scale = self.scale
-        for shape in self.shapes:
+        for shape in visible_shapes:
             if (shape.selected or not self._hideBackround) and self.isVisible(shape):
                 if (shape.isRotated and not self.hideRotated) or (not shape.isRotated and not self.hideNormal):
                     shape.fill = shape.selected or shape == self.hShape
@@ -619,8 +610,7 @@ class Canvas(QWidget):
             pal.setColor(self.backgroundRole(), QColor(232, 232, 232, 255))
             self.setPalette(pal)
 
-        # Draw segmented pixels if any
-        # seg_thread.join()
+        # -- Method2: Draw segmented pixels if any
         p.setPen(Qt.red)
         for segp in self.seg_pixels:
             segi,segj = segp
