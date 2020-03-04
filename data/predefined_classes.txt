@@ -1,7 +1,6 @@
 bed
 person
 armchair
-sofa
-divers
+couch
 table
 nightstand

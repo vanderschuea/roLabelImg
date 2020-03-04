@@ -1,3 +1,4 @@
+import open3d
 from kapnet.pointcloud.utils import transform_with_conf
 from kapnet.data.datasets import read_sample
 import numpy as np

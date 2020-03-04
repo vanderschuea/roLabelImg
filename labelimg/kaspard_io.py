@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 import numpy as np
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 class KaspardWriter:
     def __init__(self, foldername, filename, imgsize, dbsrc=None, localimg_path=None):
@@ -39,18 +40,29 @@ class KaspardWriter:
         with open(filename, 'w') as out_file:
             confparser.write(out_file)
 
-            
-
-            
 
 class KaspardReader:
-    OBJECTS = ["bed", "couch", "armchair", "person"]
+    OBJECTS = ["bed", "person", "couch", "armchair", "table", "nightstand"]
 
     def __init__(self, filepath):
         self.shapes = []
         self.filepath = filepath
         self.verified = False
         self.parse_conf()
+
+    @staticmethod
+    def read_conf(configfile):
+        confparser = ConfigParser()
+        confparser.optionxform = lambda option: option
+        confparser.read(configfile)
+        config = {s:dict(confparser.items(s)) for s in confparser.sections()}
+        for skey, section in config.items():
+            for key, item in section.items():
+                try:
+                    config[skey][key] = float(item)
+                except:
+                    pass
+        return config
 
     def parse_conf(self):
         confparser = ConfigParser()
@@ -70,12 +82,15 @@ class KaspardReader:
     def getShapes(self):
         return self.shapes
 
+    def getConfig(self):
+        return self.config
+
     def addShape(self, label, box):
         cx = box["centerX"]
         cy = box["centerY"]
         w = box["width"]
         h = box["length"]
-        angle = box["orientation"]
+        angle = np.radians(box["orientation"])
 
         p0x, p0y = self.rotatePoint(cx, cy, cx - w/2, cy - h/2, -angle)
         p1x, p1y = self.rotatePoint(cx, cy, cx + w/2, cy - h/2, -angle)
