@@ -11,7 +11,7 @@ except ImportError:
 
 from labelimg.shape import Shape
 from labelimg.lib import distance
-from labelimg.kaspard_utils import project_pcd
+from labelimg.kaspard_utils import project_pcd, segment_img
 import numpy as np
 import math
 
@@ -74,11 +74,12 @@ class Canvas(QWidget):
         self.hideNormal = False
         self.canOutOfBounding = False
         self.showCenter = False
+        self.showZColor = True
 
     @property
     def shape(self):
-        w = self.pixmap.width()*1.05+self.views[0].width()
-        h = self.pixmap.height()*1.05
+        h = self.pixmap.height()*2.05
+        w = self.pixmap.height()*4.10+self.pixmap.width()
         return w, h
 
     def enterEvent(self, ev):
@@ -520,10 +521,25 @@ class Canvas(QWidget):
         if not self.boundedMoveShape(shape, point - offset):
             self.boundedMoveShape(shape, point + offset)
 
+    def paintSegmentation(self):
+        visible_shapes = [
+            shape for shape in self.shapes if\
+                (shape.selected or not self._hideBackround) and self.isVisible(shape)
+        ]
+        simg = segment_img(self.pixmap_sample, visible_shapes, self.shape[1])
+        h,w,c = simg.shape
+        simg = QImage(simg, w, h, w*3, QImage.Format_RGB888)
+        simg = QPixmap(simg)
+        self.views = (simg, self.views[1])
+
     def paintEvent(self, event):
         if not self.pixmap:
             return super(Canvas, self).paintEvent(event)
 
+        # Recompute views
+        self.paintSegmentation()
+
+        # Paint rest of the data
         p = self._painter
         p.begin(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -533,18 +549,18 @@ class Canvas(QWidget):
         p.scale(self.scale, self.scale)
         p.translate(self.offsetToCenter())
 
-        p.drawPixmap(0, 0, self.pixmap)
-        p.drawPixmap(self.pixmap.width()*1.05, 0, self.views[0])
-        p.drawPixmap(self.pixmap.width()*1.05, self.pixmap.height()*0.525, self.views[1])
+        # p.drawPixmap(0, 0, self.pixmap)
+        pcdh = self.pixmap.height()*2.05
+        pcdw = pcdh*2
+        p.drawPixmap(pcdw, 0, self.views[0])
+        p.drawPixmap(pcdw, self.pixmap.height()*1.05, self.views[1])
 
         # draw projection
-        p.setPen(Qt.red)
-        xmin, ymin = np.min(self.pcd[:,0]), np.min(self.pcd[:,1])
-        w, h = self.shape
-        w, h = w/5.0, h/5.0
+        pcolor = self.pcd_zcolor if self.showZColor else self.pcd_icolor
         for i in range(len(self.pcd)):
-            x, y = self.pcd[i,:-1]
-            p.drawPoint((x-xmin)*w, (y-ymin)*h)
+            (x, y), color = self.pcd[i,:-1], pcolor[i]
+            p.setPen(color)
+            p.drawPoint(x*pcdh, y*pcdh)
 
         Shape.scale = self.scale
         for shape in self.shapes:
@@ -758,6 +774,9 @@ class Canvas(QWidget):
         elif key == Qt.Key_B:
             self.showCenter = not self.showCenter
             self.update()
+        elif key == Qt.Key_Less:
+            self.showZColor = not self.showZColor
+            self.update()
 
 
     def rotateOutOfBound(self, angle):
@@ -829,12 +848,14 @@ class Canvas(QWidget):
         self.update()
 
     def loadPixmap(self, img, filePath):
-        self.pcd = project_pcd(filePath)
+        self.pcd, (pcd_zcolor, pcd_icolor), self.pixmap_sample = project_pcd(filePath)
+        self.pcd_zcolor = [QColor(*cx) for cx in pcd_zcolor]
+        self.pcd_icolor = [QColor(cx, cx, cx, 255) for cx in pcd_icolor]
         self.pixmap = pmap = QPixmap.fromImage(img)
-        nh = round(pmap.height()*0.475)
+        # nh = round(pmap.height()*0.475)
         self.views = (
-            pmap.scaledToHeight(nh, mode=Qt.SmoothTransformation),
-            pmap.scaledToHeight(nh, mode=Qt.SmoothTransformation)
+            pmap,#.scaledToHeight(nh, mode=Qt.SmoothTransformation),
+            pmap#.scaledToHeight(nh, mode=Qt.SmoothTransformation)
         )
         self.shapes = []
         self.repaint()
