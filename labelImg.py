@@ -928,7 +928,7 @@ class MainWindow(QMainWindow, WindowMixin):
                     self.loadPascalXMLByFilename(xmlPath)
                 else:
                     fp = Path(filePath)
-                    kaspardpath = fp.parents[1] / "conf" / (fp.stem+".conf")
+                    kaspardpath = fp.parents[1] / "kaspardconf" / (fp.stem+".conf")
                     if os.path.isfile(kaspardpath):
                         self.loadKaspardConfByFilename(kaspardpath)
 
@@ -1163,7 +1163,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def saveFile(self, _value=False):
         filepath = Path(self.filePath)
-        annotpath = filepath.parents[1] / "conf" / (filepath.stem + ".conf")
+        annotpath = filepath.parents[1] / "kaspardconf" / (filepath.stem + ".conf")
         self._saveFile(annotpath)
 
     def saveFileAs(self, _value=False):

@@ -20,15 +20,15 @@ def reverse_adapt_pcd(pcd):
 
 def project_pcd(filePath):
     fpath = Path(filePath)
-    con_path = fpath.parents[1] / "conf" / (fpath.stem+".conf")
+    con_path = fpath.parents[1] / "kaspardconf" / (fpath.stem+".conf")
     img_path = fpath.parents[1] / "image" / (fpath.stem+".png") 
     pcd_path = fpath.parents[1] / "pcd" / (fpath.stem+".pcd")
 
     sample = read_sample({
-        "conf": con_path, "image": img_path, "pcd": pcd_path
+        "kaspardconf": con_path, "image": img_path, "pcd": pcd_path
     })
     pcd = sample["pcd"]["points"]
-    cfg = sample["conf"]
+    cfg = sample["kaspardconf"]
 
     zlim = 2.2
     flim = 0.10
@@ -53,7 +53,7 @@ def project_pcd(filePath):
     return pcd, (zcolor, icolor), sample
 
 @jit(nopython=True)
-def _segment_img(pcd, D, A, B, ok): # About 10-50< faster with numba
+def _segment_img(pcd, D, A, B, ok): # About 10-50x faster with numba
     AB, AD, AP = B-A, D-A, pcd-A
     AB2, AD2 = AB@AB, AD@AD
     APAB, APAD = AP@AB, AP@AD
