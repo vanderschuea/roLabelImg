@@ -716,10 +716,13 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
+        # FIXME: call canvas.shape!!!!!!!!!!!
+        scale = 120*2.05
         for label, points, direction, isRotated, line_color, fill_color, difficult in shapes:
             shape = Shape(label=label)
             for x, y in points:
-                shape.addPoint(QPointF(x, y))
+                # FIXME: call kaspard_utils.adapt_pcd
+                shape.addPoint(QPointF((5+x)*scale/5, (5-y)*scale/5))
             shape.difficult = difficult
             shape.direction = direction
             shape.isRotated = isRotated
@@ -1088,7 +1091,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.mImgList = self.scanAllImages(dirpath)
         self.openNextImg()
         for imgPath in self.mImgList:
-            item = QListWidgetItem(imgPath)
+            item = QListWidgetItem(imgPath.split('/')[-1])
             self.fileListWidget.addItem(item)
 
     def verifyImg(self, _value=False):
