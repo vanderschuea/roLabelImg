@@ -9,7 +9,10 @@ except ImportError:
 from base64 import b64encode, b64decode
 from labelimg.pascal_voc_io import PascalVocWriter
 from labelimg.pascal_voc_io import XML_EXT
+from labelimg.kaspard_io import KaspardWriter, KaspardReader
 import os.path
+import numpy as np
+from pathlib import Path
 import sys
 import math
 
@@ -27,6 +30,23 @@ class LabelFile(object):
         self.imagePath = None
         self.imageData = None
         self.verified = False
+
+    def saveKaspardFormat(self, filename, shapes):
+        writer = KaspardWriter(None, filename, None)
+        writer.verified = self.verified
+
+        for shape in shapes:
+            points = shape["points"]
+            label = shape["label"]
+            direction = shape["direction"]
+            rbbox = LabelFile.convertPoints2RotatedBndBox(shape)
+            writer.add_bbox(*rbbox, label)
+        
+        if Path(filename).exists():
+            oldconfig = KaspardReader.read_conf(filename)
+        else:
+            oldconfig = None
+        writer.save(targetfile=filename, oldConfig=oldconfig)
 
     def savePascalVocFormat(self, filename, shapes, imagePath, imageData,
                             lineColor=None, fillColor=None, databaseSrc=None):
@@ -114,6 +134,6 @@ class LabelFile(object):
         h = math.sqrt((points[2][0]-points[1][0]) ** 2 +
             (points[2][1]-points[1][1]) ** 2)
 
-        angle = direction % math.pi
+        angle = np.degrees(direction) # % math.pi
 
         return (round(cx,4),round(cy,4),round(w,4),round(h,4),round(angle,6))
