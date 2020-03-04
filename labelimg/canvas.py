@@ -14,6 +14,7 @@ from labelimg.lib import distance
 from labelimg.kaspard_utils import project_pcd, segment_img
 import numpy as np
 import math
+import threading
 
 CURSOR_DEFAULT = Qt.ArrowCursor
 CURSOR_POINT = Qt.PointingHandCursor
@@ -75,6 +76,8 @@ class Canvas(QWidget):
         self.canOutOfBounding = False
         self.showCenter = False
         self.showZColor = True
+        # Segmentation
+        self.seg_pixels = []
 
     @property
     def shape(self):
@@ -526,21 +529,32 @@ class Canvas(QWidget):
             shape for shape in self.shapes if\
                 (shape.selected or not self._hideBackround) and self.isVisible(shape)
         ]
-        simg = segment_img(self.pixmap_sample, visible_shapes, self.shape[1])
-        h,w,c = simg.shape
-        simg = QImage(simg, w, h, w*3, QImage.Format_RGB888)
-        simg = QPixmap(simg)
-        self.views = (simg, self.views[1])
+        simg, self.seg_pixels = segment_img(self.pixmap_sample, visible_shapes, self.shape[1])
+        # Method 1
+        # h,w,c = simg.shape
+        # simg = QImage(simg, w, h, w*3, QImage.Format_RGB888)
+        # simg = QPixmap(simg)
+        # self.views = (simg, self.views[1])
+
+        # Method 2 (should be slightly faster)
+        # xoff = self.pixmap.height()*2.05*2
+        # yoff = self.pixmap.height()*1.05
+        # p.setPen(Qt.red)
+        # for xp in ok:
+        #     i,j = xp
+        #     p.drawPoint(j+xoff, i+yoff)
 
     def paintEvent(self, event):
         if not self.pixmap:
             return super(Canvas, self).paintEvent(event)
 
-        # Recompute views
+        # seg_thread = threading.Thread(name="compute_seg", target=self.paintSegmentation)
+        # seg_thread.start()
         self.paintSegmentation()
 
         # Paint rest of the data
         p = self._painter
+        # Recompute views
         p.begin(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.HighQualityAntialiasing)
@@ -552,6 +566,7 @@ class Canvas(QWidget):
         # p.drawPixmap(0, 0, self.pixmap)
         pcdh = self.pixmap.height()*2.05
         pcdw = pcdh*2
+        mid_pcdh = self.pixmap.height()*1.05
         p.drawPixmap(pcdw, 0, self.views[0])
         p.drawPixmap(pcdw, self.pixmap.height()*1.05, self.views[1])
 
@@ -603,6 +618,13 @@ class Canvas(QWidget):
             pal = self.palette()
             pal.setColor(self.backgroundRole(), QColor(232, 232, 232, 255))
             self.setPalette(pal)
+
+        # Draw segmented pixels if any
+        # seg_thread.join()
+        p.setPen(Qt.red)
+        for segp in self.seg_pixels:
+            segi,segj = segp
+            p.drawPoint(segj+pcdw, segi+mid_pcdh+1)
 
         p.end()
 
@@ -881,4 +903,5 @@ class Canvas(QWidget):
         self.restoreCursor()
         self.pixmap = None
         self.views = (None, None)
+        self.seg_pixels = []
         self.update()
