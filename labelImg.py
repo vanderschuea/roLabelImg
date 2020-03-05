@@ -216,7 +216,7 @@ class MainWindow(QMainWindow, WindowMixin):
                              'd', 'next', u'Open Next')
 
         openPrevImg = action('&Prev Image', self.openPrevImg,
-                             'a', 'prev', u'Open Prev')
+                             'q', 'prev', u'Open Prev')
 
         verify = action('&Verify Image', self.verifyImg,
                         'space', 'verify', u'Verify Image')

@@ -77,7 +77,7 @@ class Canvas(QWidget):
         self.showCenter = False
         self.showZColor = True
         # Segmentation
-        self.seg_pixels = []
+        self.hide_floor = False
 
     @property
     def shape(self):
@@ -433,11 +433,11 @@ class Canvas(QWidget):
             self.prevPoint = pos
 
     def getAngle(self, center, p1, p2):
-        dx1 = p1.x() - center.x();
-        dy1 = p1.y() - center.y();
+        dx1 = p1.x() - center.x()
+        dy1 = p1.y() - center.y()
 
-        dx2 = p2.x() - center.x();
-        dy2 = p2.y() - center.y();
+        dx2 = p2.x() - center.x()
+        dy2 = p2.y() - center.y()
 
         c = math.sqrt(dx1*dx1 + dy1*dy1) * math.sqrt(dx2*dx2 + dy2*dy2)
         if c == 0: return 0
@@ -533,14 +533,16 @@ class Canvas(QWidget):
             shape for shape in self.shapes if\
                 (shape.selected or not self._hideBackround) and self.isVisible(shape)
         ]
-        self.seg_image, self.seg_pixels = segment_img(self.pixmap_sample, visible_shapes, self.shape[1])
+        seg_images = segment_img(
+            self.pixmap_sample, visible_shapes, self.shape[1], self.hide_floor
+        )
 
-        # -- Method 1: Draw image w/ segmentation
-        simg = self.seg_image
-        h,w,c = simg.shape
-        simg = QImage(simg, w, h, w*3, QImage.Format_RGB888)
-        simg = QPixmap(simg)
-        self.views = (simg, self.views[1])
+        self.views = []
+        for simg in seg_images:
+            h,w,c = simg.shape
+            simg = QImage(simg, w, h, w*3, QImage.Format_RGB888)
+            simg = QPixmap(simg)
+            self.views.append(simg)
 
         # Paint rest of the data
         p = self._painter
@@ -609,12 +611,6 @@ class Canvas(QWidget):
             pal = self.palette()
             pal.setColor(self.backgroundRole(), QColor(232, 232, 232, 255))
             self.setPalette(pal)
-
-        # -- Method2: Draw segmented pixels if any
-        p.setPen(Qt.red)
-        for segp in self.seg_pixels:
-            segi,segj = segp
-            p.drawPoint(segj+pcdw, segi+mid_pcdh+1)
 
         p.end()
 
@@ -783,6 +779,9 @@ class Canvas(QWidget):
             self.update()
         # elif key == Qt.Key_O:
         #     self.canOutOfBounding = not self.canOutOfBounding
+        elif key == Qt.Key_F:
+            self.hide_floor = not self.hide_floor
+            self.update()
         elif key == Qt.Key_B:
             self.showCenter = not self.showCenter
             self.update()
@@ -893,5 +892,4 @@ class Canvas(QWidget):
         self.restoreCursor()
         self.pixmap = None
         self.views = (None, None)
-        self.seg_pixels = []
         self.update()

@@ -37,6 +37,12 @@ def project_pcd(filePath):
     pcd = transform_with_conf(pcd, cfg, do_bed_transform=False)
     sample["pcd"] = pcd.copy() #TODO: is copy necessary?
     pcd = np.nan_to_num(pcd) # NaN->0<flim => filtered
+    
+    cnorm = plt.Normalize(vmin=flim, vmax=zlim)
+    cmap = cmx.ScalarMappable(norm=cnorm, cmap=plt.get_cmap("magma"))
+    cmap_img = cmx.ScalarMappable(norm=cnorm, cmap=plt.get_cmap("viridis"))
+    zcolor = np.clip(np.round(cmap.to_rgba(pcd[:,-1])*255), 0,255)
+    zimg = np.clip(np.round(cmap_img.to_rgba(pcd[:,-1])*255), 0,255)
 
     selected = (pcd[:,-1]>flim) & (pcd[:,-1]<=zlim) &\
                (pcd[:,0]<=border) & (pcd[:,0]>=-border)& (pcd[:,1]<border)
@@ -44,14 +50,12 @@ def project_pcd(filePath):
     img = sample["image"].copy().astype(np.uint8)
     icolor = np.rot90(img,2).reshape(pcd.shape[0])[selected]
     sample["image"] = np.stack([img, img, img], axis=-1)
+    sample["zimage"] = np.rot90(zimg[:,:3].reshape(img.shape[:2]+(3,)), 2)
 
     pcd = pcd[selected, :]
     pcd = adapt_pcd(pcd)
 
-    cnorm = plt.Normalize(vmin=flim, vmax=zlim)
-    cmap = cmx.ScalarMappable(norm=cnorm, cmap=plt.get_cmap("magma"))
-    zcolor = np.clip(np.round(cmap.to_rgba(pcd[:,-1])*255), 0,255)
-    return pcd, (zcolor, icolor), sample
+    return pcd, (zcolor[selected,:], icolor), sample
 
 @jit(nopython=True)
 def _segment_img(pcd, D, A, B, ok): # About 10-50x faster with numba
@@ -61,11 +65,11 @@ def _segment_img(pcd, D, A, B, ok): # About 10-50x faster with numba
     ok = ok | ((0<APAB) & (APAB<AB2) & (0<APAD) & (APAD<AD2) )
     return ok
 
-def segment_img(sample, visible_shapes, scale):
+def segment_img(sample, visible_shapes, scale, hide_floor):
     pcd = sample["pcd"]
-    pcd = pcd_orig = pcd[:,:2]
-       
-    pcd = adapt_pcd(np.nan_to_num(pcd))  # copy to avoid changing sample["pcd"]
+    pcd = pcd_orig = pcd
+    pcd = clean_pcd = np.nan_to_num(pcd) # copy to avoid changing sample["pcd"]
+    pcd = adapt_pcd(pcd[:,:2])
     pcd = pcd*scale
 
     ok = defaultdict(lambda: np.zeros(pcd.shape[0], dtype=np.bool))
@@ -77,17 +81,18 @@ def segment_img(sample, visible_shapes, scale):
         B = np.array((shape.points[2].x(), shape.points[2].y()))
         ok[shape.label] = _segment_img(pcd, D, A, B, ok[shape.label])
         colors[shape.label] = shape.segment_color
-    img = sample["image"].copy()
+    imgs = sample["image"].copy(), sample["zimage"].copy()
     lok = None
-    for key in ok:
-        ok[key] = (~np.isnan(pcd_orig[:,0])) & ok[key]
-        ok[key] = np.rot90(np.reshape(ok[key], img.shape[:2]), 2)
-        lok = ok[key]
-        if np.sum(ok[key])>0:
+    for key, ok_key in ok.items():
+        ok_key = (~np.isnan(pcd_orig[:,0])) & ok_key
+        if hide_floor:
+            ok_key = ok_key & (clean_pcd[:,-1]>0.1)
+        ok_key = np.rot90(np.reshape(ok_key, imgs[0].shape[:2]), 2)
+        lok = ok_key
+        if np.sum(ok_key)>0:
             alpha = 0.4
-            im_ok = img[ok[key]]
-            img[ok[key]] = alpha*im_ok + (1-alpha)*colors[key]*np.ones_like(im_ok)
-    
-    img = img.astype(np.uint8)
-     
-    return img, np.transpose(lok.nonzero())
+            for img in imgs:
+                im_ok = img[ok_key]
+                img[ok_key] = alpha*im_ok + (1-alpha)*colors[key]*np.ones_like(im_ok)
+
+    return imgs[0].astype(np.uint8), imgs[1].astype(np.uint8)
