@@ -721,7 +721,7 @@ class MainWindow(QMainWindow, WindowMixin):
         s = []
         scale = self.canvas.shape[1]
         for label, points, direction, isRotated, line_color, fill_color, difficult in shapes:
-            shape = Shape(label=label)
+            shape = Shape(label=label, default_labels=self.default_labels)
             for x, y in points:
                 xy = adapt_pcd(np.array([[x, y]]))[0]*scale
                 shape.addPoint(QPointF(xy[0], xy[1]))

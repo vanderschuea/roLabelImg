@@ -6,6 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 from numba import jit
+from collections import defaultdict
 
 
 def adapt_pcd(pcd):
@@ -67,14 +68,21 @@ def segment_img(sample, visible_shapes, scale):
     pcd = adapt_pcd(pcd.copy())  # copy to avoid changing sample["pcd"]
     pcd = pcd*scale
 
-    ok = np.zeros(pcd.shape[0], dtype=np.bool)
+    ok = defaultdict(lambda: np.zeros(pcd.shape[0], dtype=np.bool))
+    ok["default"] = np.zeros(pcd.shape[0], dtype=np.bool)
+    colors = {}
     for shape in visible_shapes:
         D = np.array((shape.points[0].x(), shape.points[0].y()))
         A = np.array((shape.points[1].x(), shape.points[1].y()))
         B = np.array((shape.points[2].x(), shape.points[2].y()))
-        ok = _segment_img(pcd, D, A, B, ok)  
+        ok[shape.label] = _segment_img(pcd, D, A, B, ok[shape.label])
+        colors[shape.label] = shape.segment_color
     img = sample["image"].copy()
-    ok = np.rot90(np.reshape(ok, img.shape[:2]), 2)
-    if np.sum(ok)>0:
-        img[ok] = np.array([255, 0,0])
-    return img, np.transpose(ok.nonzero())
+    lok = None
+    for key in ok:
+        ok[key] = np.rot90(np.reshape(ok[key], img.shape[:2]), 2)
+        lok = ok[key]
+        if np.sum(ok[key])>0:
+            img[ok[key]] = colors[key] # np.array([255, 0,0])
+     
+    return img, np.transpose(lok.nonzero())

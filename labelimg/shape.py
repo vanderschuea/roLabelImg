@@ -10,6 +10,8 @@ except ImportError:
     from PyQt4.QtCore import *
 
 from labelimg.lib import distance
+import open3d
+import numpy as np
 import math
 
 DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
@@ -19,6 +21,22 @@ DEFAULT_SELECT_FILL_COLOR = QColor(0, 128, 255, 155)
 DEFAULT_VERTEX_FILL_COLOR = QColor(0, 255, 0, 255)
 DEFAULT_HVERTEX_FILL_COLOR = QColor(255, 0, 0)
 
+# DEFAULT_SEGMENT_QCOLORS = [QColor(*[int(x*255) for x in color]) for color in DEFAULT_SEGMENT_COLORS]
+DEFAULT_SEGMENT_COLORS = np.array([
+        (0, 0, 0),  # black
+        (230, 25, 75),  # red
+        (60, 180, 75),  # green
+        (255, 225, 25),  # yellow
+        (0, 130, 200),  # blue
+        (245, 130, 48),  # orange
+        (145, 30, 180),  # purple
+        (70, 240, 240),  # cyan
+        (240, 50, 230),  # magenta
+        (210, 245, 60),  # lime
+        (250, 190, 190),  # pink
+        (0, 128, 128),  # teal
+        (230, 190, 255),  # lavender
+])
 
 class Shape(object):
     P_SQUARE, P_ROUND = range(2)
@@ -36,8 +54,11 @@ class Shape(object):
     point_type = P_ROUND
     point_size = 8
     scale = 1.0
+    default_labels = None
 
-    def __init__(self, label=None, line_color=None,difficult = False):
+    def __init__(self, label=None, line_color=None, difficult=False, default_labels=None):
+        if default_labels is not None and Shape.default_labels is None:
+            Shape.default_labels = default_labels
         self.label = label
         self.points = []
         self.fill = False
@@ -56,14 +77,20 @@ class Shape(object):
         }
 
         self._closed = False
-
+        # if label is not None:
+        #     self.segment_color = DEFAULT_SEGMENT_COLORS[Shape.default_labels.index(label)+1]
+        # else:
+        #     self.segment_color = np.array([255,0,0])
         if line_color is not None:
             # Override the class line_color attribute
             # with an object attribute. Currently this
             # is used for drawing the pending line a different color.
             self.line_color = line_color
 
-
+    @property
+    def segment_color(self):
+        return DEFAULT_SEGMENT_COLORS[Shape.default_labels.index(self.label)+1]
+    
     def rotate(self, theta):
         for i, p in enumerate(self.points):
             self.points[i] = self.rotatePoint(p, theta)
