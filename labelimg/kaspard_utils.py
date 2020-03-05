@@ -35,8 +35,8 @@ def project_pcd(filePath):
     flim = 0.10
     border = 5.0
     pcd = transform_with_conf(pcd, cfg, do_bed_transform=False)
-    pcd = np.nan_to_num(pcd) # NaN->0<flim => filtered
     sample["pcd"] = pcd.copy() #TODO: is copy necessary?
+    pcd = np.nan_to_num(pcd) # NaN->0<flim => filtered
 
     selected = (pcd[:,-1]>flim) & (pcd[:,-1]<=zlim) &\
                (pcd[:,0]<=border) & (pcd[:,0]>=-border)& (pcd[:,1]<border)
@@ -63,9 +63,9 @@ def _segment_img(pcd, D, A, B, ok): # About 10-50x faster with numba
 
 def segment_img(sample, visible_shapes, scale):
     pcd = sample["pcd"]
-    pcd = pcd[:,:2]
+    pcd = pcd_orig = pcd[:,:2]
        
-    pcd = adapt_pcd(pcd.copy())  # copy to avoid changing sample["pcd"]
+    pcd = adapt_pcd(np.nan_to_num(pcd))  # copy to avoid changing sample["pcd"]
     pcd = pcd*scale
 
     ok = defaultdict(lambda: np.zeros(pcd.shape[0], dtype=np.bool))
@@ -80,9 +80,14 @@ def segment_img(sample, visible_shapes, scale):
     img = sample["image"].copy()
     lok = None
     for key in ok:
+        ok[key] = (~np.isnan(pcd_orig[:,0])) & ok[key]
         ok[key] = np.rot90(np.reshape(ok[key], img.shape[:2]), 2)
         lok = ok[key]
         if np.sum(ok[key])>0:
-            img[ok[key]] = colors[key] # np.array([255, 0,0])
+            alpha = 0.4
+            im_ok = img[ok[key]]
+            img[ok[key]] = alpha*im_ok + (1-alpha)*colors[key]*np.ones_like(im_ok)
+    
+    img = img.astype(np.uint8)
      
     return img, np.transpose(lok.nonzero())
