@@ -20,15 +20,15 @@ def reverse_adapt_pcd(pcd):
 
 def project_pcd(filePath):
     fpath = Path(filePath)
-    con_path = fpath.parents[1] / "kaspardconf" / (fpath.stem+".conf")
+    con_path = fpath.parents[1] / "conf" / (fpath.stem+".toml")
     img_path = fpath.parents[1] / "image" / (fpath.stem+".png") 
     pcd_path = fpath.parents[1] / "pcd" / (fpath.stem+".pcd")
 
     sample = read_sample({
-        "kaspardconf": con_path, "image": img_path, "pcd": pcd_path
+        "conf": con_path, "image": img_path, "pcd": pcd_path
     })
     pcd = sample["pcd"]["points"]
-    cfg = sample["kaspardconf"]
+    cfg = sample["conf"]
 
     zlim = 2.2
     flim = 0.10

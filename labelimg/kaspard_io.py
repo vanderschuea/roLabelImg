@@ -1,6 +1,7 @@
-from configparser import ConfigParser
 import numpy as np
+import toml
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from kapnet.data.datasets import read_sample
 
 class KaspardWriter:
     def __init__(self, foldername, filename, imgsize, dbsrc=None, localimg_path=None):
@@ -14,31 +15,27 @@ class KaspardWriter:
         self.verified = False
     
     def add_bbox(self, cx, cy, w, h, angle, name, difficult=None):
-        robndbox = {'centerX': cx, 'centerY': cy, 'width': w, 'length': h,
-                    'orientation': angle}
+        robndbox = {'centerX': float(cx), 'centerY': float(cy), 'width': float(w), 'length': float(h),
+                    'orientation': float(angle)}
         robndbox['name'] = name
         self.roboxlist.append(robndbox)
 
     def append_objects(self, config):
         for obj in self.roboxlist:
-            config[obj["name"]] = obj
+            config.setdefault(obj["name"], []).append(obj)
     
     def save(self, targetfile=None, oldConfig=None):
         if oldConfig is None:
             oldConfig = {}
-        config = oldConfig
+        config = {"camera": oldConfig["camera"]}
         self.append_objects(config)
-        confparser = ConfigParser()
-        confparser.optionxform = lambda option: option # disable lower-casing
-        for section in config:
-            confparser[section] = config[section]
-        
+
         if targetfile is None:
-            filename = self.filename + ".conf"
+            filename = self.filename + ".toml"
         else:
             filename = targetfile
         with open(filename, 'w') as out_file:
-            confparser.write(out_file)
+            toml.dump(config, out_file)
 
 
 class KaspardReader:
@@ -52,31 +49,15 @@ class KaspardReader:
 
     @staticmethod
     def read_conf(configfile):
-        confparser = ConfigParser()
-        confparser.optionxform = lambda option: option
-        confparser.read(configfile)
-        config = {s:dict(confparser.items(s)) for s in confparser.sections()}
-        for skey, section in config.items():
-            for key, item in section.items():
-                try:
-                    config[skey][key] = float(item)
-                except:
-                    pass
+        config = read_sample({"conf": configfile})["conf"]
         return config
 
     def parse_conf(self):
-        confparser = ConfigParser()
-        confparser.optionxform = lambda option: option
-        confparser.read(self.filepath)
-        config = {s:dict(confparser.items(s)) for s in confparser.sections()}
+        config = KaspardReader.read_conf(self.filepath)
         for skey, section in config.items():
-            for key, item in section.items():
-                try:
-                    config[skey][key] = float(item)
-                except:
-                    pass
             if skey in self.OBJECTS:
-                self.addShape(skey, config[skey])
+                for obj in config[skey]:
+                    self.addShape(skey, obj)
         self.config = config
 
     def getShapes(self):
