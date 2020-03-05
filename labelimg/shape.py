@@ -25,7 +25,7 @@ DEFAULT_HVERTEX_FILL_COLOR = QColor(255, 0, 0)
 DEFAULT_SEGMENT_COLORS = np.array([
         (0, 0, 0),  # black
         (230, 25, 75),  # red
-        (60, 180, 75),  # green
+        # ugly color ! (60, 180, 75),  # green
         (255, 225, 25),  # yellow
         (0, 130, 200),  # blue
         (245, 130, 48),  # orange
