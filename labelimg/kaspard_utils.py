@@ -9,13 +9,13 @@ from numba import jit
 
 
 def adapt_pcd(pcd):
+    pcd[:,0] = (5.0+pcd[:,0])/5.0
     pcd[:,1] = (5.0-pcd[:,1])/5.0
-    pcd[:,0] = (pcd[:,0]+5.0)/5.0
     return pcd
 
 def reverse_adapt_pcd(pcd):
-    pcd[:,1] = 5.0-pcd[:,1]*5.0
     pcd[:,0] = pcd[:,0]*5.0-5.0
+    pcd[:,1] = 5.0-pcd[:,1]*5.0
     return pcd
 
 def project_pcd(filePath):
@@ -63,15 +63,16 @@ def _segment_img(pcd, D, A, B, ok): # About 10-50x faster with numba
 def segment_img(sample, visible_shapes, scale):
     pcd = sample["pcd"]
     pcd = pcd[:,:2]
-    pcd = np.array([5.0,5.0]) + np.array([1.0,-1.0])*pcd
-    pcd = pcd*scale/5.0
+       
+    pcd = adapt_pcd(pcd.copy())  # copy to avoid changing sample["pcd"]
+    pcd = pcd*scale
 
     ok = np.zeros(pcd.shape[0], dtype=np.bool)
     for shape in visible_shapes:
         D = np.array((shape.points[0].x(), shape.points[0].y()))
         A = np.array((shape.points[1].x(), shape.points[1].y()))
         B = np.array((shape.points[2].x(), shape.points[2].y()))
-        ok = _segment_img(pcd, D, A, B, ok)    
+        ok = _segment_img(pcd, D, A, B, ok)  
     img = sample["image"].copy()
     ok = np.rot90(np.reshape(ok, img.shape[:2]), 2)
     if np.sum(ok)>0:

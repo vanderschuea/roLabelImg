@@ -125,8 +125,7 @@ class LabelFile(object):
         center = shape['center']
         direction = shape['direction']
 
-        cx = center.x()
-        cy = center.y()
+        cx, cy = center
         
         w = math.sqrt((points[0][0]-points[1][0]) ** 2 +
             (points[0][1]-points[1][1]) ** 2)

@@ -5,6 +5,7 @@ import os.path
 import re
 import sys
 import subprocess
+import numpy as np
 
 from functools import partial
 from pathlib import Path
@@ -29,6 +30,7 @@ from labelimg.kaspard_io import KaspardReader
 from labelimg.pascal_voc_io import PascalVocReader
 from labelimg.pascal_voc_io import XML_EXT
 from labelimg.ustr import ustr
+from labelimg.kaspard_utils import adapt_pcd, reverse_adapt_pcd
 
 __appname__ = 'labelImg'
 
@@ -716,13 +718,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        # FIXME: call canvas.shape!!!!!!!!!!!
-        scale = 120*2.05
+        scale = self.canvas.shape[1]
         for label, points, direction, isRotated, line_color, fill_color, difficult in shapes:
             shape = Shape(label=label)
             for x, y in points:
-                # FIXME: call kaspard_utils.adapt_pcd
-                shape.addPoint(QPointF((5+x)*scale/5, (5-y)*scale/5))
+                xy = adapt_pcd(np.array([[x, y]]))[0]*scale
+                shape.addPoint(QPointF(xy[0], xy[1]))
             shape.difficult = difficult
             shape.direction = direction
             shape.isRotated = isRotated
@@ -744,18 +745,20 @@ class MainWindow(QMainWindow, WindowMixin):
             self.labelFile.verified = self.canvas.verified
 
         def format_shape(s):
+            scale = self.canvas.shape[1]
+            rescale = lambda x,y: reverse_adapt_pcd(np.array([[x, y]])/scale)[0]
             return dict(label=s.label,
                         line_color=s.line_color.getRgb()
                         if s.line_color != self.lineColor else None,
                         fill_color=s.fill_color.getRgb()
                         if s.fill_color != self.fillColor else None,
-                        points=[(p.x(), p.y()) for p in s.points],
+                        points=[rescale(p.x(), p.y()) for p in s.points],
                        # add chris
                         difficult = s.difficult,
                         # You Hao 2017/06/21
                         # add for rotated bounding box
                         direction = s.direction,
-                        center = s.center,
+                        center = rescale(s.center.x(), s.center.y()),
                         isRotated = s.isRotated)
 
         shapes = [format_shape(shape) for shape in self.canvas.shapes]
