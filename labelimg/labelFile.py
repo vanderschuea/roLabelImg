@@ -25,14 +25,15 @@ class LabelFile(object):
     # suffix = '.lif'
     suffix = XML_EXT
 
-    def __init__(self, filename=None):
+    def __init__(self, default_labels):
         self.shapes = ()
         self.imagePath = None
         self.imageData = None
         self.verified = False
+        self.default_labels = default_labels
 
     def saveKaspardFormat(self, filename, shapes):
-        writer = KaspardWriter(None, filename, None)
+        writer = KaspardWriter(None, filename, None, default_labels=self.default_labels)
         writer.verified = self.verified
 
         for shape in shapes:

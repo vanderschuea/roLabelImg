@@ -4,7 +4,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from kapnet.data.datasets import read_sample
 
 class KaspardWriter:
-    def __init__(self, foldername, filename, imgsize, dbsrc=None, localimg_path=None):
+    def __init__(self, foldername, filename, imgsize, dbsrc=None, localimg_path=None, default_labels=None):
         self.foldername = foldername
         self.filename = filename
         self.dbsrc = dbsrc
@@ -39,12 +39,12 @@ class KaspardWriter:
 
 
 class KaspardReader:
-    OBJECTS = ["bed", "person", "couch", "armchair", "table", "nightstand"]
-
-    def __init__(self, filepath):
+    
+    def __init__(self, filepath, default_labels=None):
         self.shapes = []
         self.filepath = filepath
         self.verified = False
+        self.default_labels = default_labels
         self.parse_conf()
 
     @staticmethod
@@ -55,7 +55,7 @@ class KaspardReader:
     def parse_conf(self):
         config = KaspardReader.read_conf(self.filepath)
         for skey, section in config.items():
-            if skey in self.OBJECTS:
+            if skey in self.default_labels:
                 for obj in config[skey]:
                     self.addShape(skey, obj)
         self.config = config

@@ -741,7 +741,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def saveLabels(self, annotationFilePath):
         annotationFilePath = ustr(annotationFilePath)
         if self.labelFile is None:
-            self.labelFile = LabelFile()
+            self.labelFile = LabelFile(self.default_labels)
             self.labelFile.verified = self.canvas.verified
 
         def format_shape(s):
@@ -888,7 +888,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if unicodeFilePath and os.path.exists(unicodeFilePath):
             if LabelFile.isLabelFile(unicodeFilePath):
                 try:
-                    self.labelFile = LabelFile(unicodeFilePath)
+                    self.labelFile = LabelFile(self.default_labels)
                 except LabelFileError as e:
                     self.errorMessage(u'Error opening file',
                                       (u"<p><b>%s</b></p>"
@@ -1276,10 +1276,8 @@ class MainWindow(QMainWindow, WindowMixin):
             with codecs.open(predefClassesFile, 'r', 'utf8') as f:
                 for line in f:
                     line = line.strip()
-                    if self.labelHist is None:
-                        self.lablHist = [line]
-                    else:
-                        self.labelHist.append(line)
+                    self.labelHist.append(line)
+                self.default_labels = self.labelHist
 
     def loadKaspardConfByFilename(self, confpath):
         if self.filePath is None:
@@ -1287,7 +1285,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if os.path.isfile(confpath) is False:
             return
         
-        kaspardReader = KaspardReader(confpath)
+        kaspardReader = KaspardReader(confpath, self.default_labels)
         shapes = kaspardReader.getShapes()
         self.loadLabels(shapes)
         self.canvas.verified = kaspardReader.verified
