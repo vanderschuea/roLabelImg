@@ -76,5 +76,9 @@ def segment_img(sample, visible_shapes, scale):
     img = sample["image"].copy()
     ok = np.rot90(np.reshape(ok, img.shape[:2]), 2)
     if np.sum(ok)>0:
-        img[ok] = np.array([255, 0,0])
+        alpha = 0.7
+        im_ok = img[ok]
+        img[ok] = alpha*im_ok + (1-alpha)*np.array([255, 0,0])*np.ones_like(im_ok)
+        img = img.astype(np.uint8)
+
     return img, np.transpose(ok.nonzero())
