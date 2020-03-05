@@ -300,6 +300,16 @@ class MainWindow(QMainWindow, WindowMixin):
                       enabled=False)
         self.editButton.setDefaultAction(edit)
 
+        copyAll = action('&Copy Shapes', self.copyShapes,
+                         'Ctrl+C', 'copy-all', "Copy all visible shapes",
+                         enabled=True)
+        pasteAll = action('&Paste Shapes', self.pasteShapes,
+                          'Ctrl+V', 'paste-all', "Paste all saved shapes",
+                          enabled=True)
+        replaceAll = action('&Replace Shapes', self.pasteDestructiveShapes,
+                          'Ctrl+Shift+V', 'replace-all', "Paste all saved shapes and replace current shapes",
+                          enabled=True)
+
         shapeLineColor = action('Shape &Line Color', self.chshapeLineColor,
                                 icon='color_line', tip=u'Change the line color for this specific shape',
                                 enabled=False)
@@ -331,7 +341,7 @@ class MainWindow(QMainWindow, WindowMixin):
                                   open, opendir, save, saveAs, close, quit),
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
-                                        None, color1, color2),
+                                        None, color1, color2, copyAll, pasteAll, replaceAll),
                               beginnerContext=(create, edit, copy, delete),
                               advancedContext=(createMode, editMode, edit, copy,
                                                delete, shapeLineColor, shapeFillColor),
@@ -543,6 +553,28 @@ class MainWindow(QMainWindow, WindowMixin):
         # print(message)
         self.statusBar().showMessage(message, delay)
         self.statusBar().show()
+
+    def copyShapes(self):
+        shapes = self.canvas.copyShapes()
+        if len(shapes)>0:
+            self.copied_shapes = shapes
+
+    def pasteDestructiveShapes(self):
+        self.pasteShapes(destroy=True)
+
+    def pasteShapes(self, destroy=False):
+        if hasattr(self, "copied_shapes"):
+            if destroy:
+                for shape in self.canvas.shapes:
+                    self.remLabel(shape)
+            
+            shapes = [shape.copy() for shape in self.copied_shapes]
+            for shape in shapes:
+                self.addLabel(shape)
+            if destroy:
+                self.canvas.setShapes(shapes)
+            else:
+                self.canvas.appendShapes(shapes)
 
     def resetState(self):
         self.itemsToShapes.clear()
@@ -1027,18 +1059,6 @@ class MainWindow(QMainWindow, WindowMixin):
         images.sort(key=lambda x: x.lower())
         return images
     
-    # def scanAllImages(self, folderPath):
-    #     extensions = ['.jpeg', '.jpg', '.png', '.bmp']
-    #     images = []
-
-    #     for root, dirs, files in os.walk(folderPath):
-    #         for file in files:
-    #             if file.lower().endswith(tuple(extensions)):
-    #                 relatviePath = os.path.join(root, file)
-    #                 path = ustr(os.path.abspath(relatviePath))
-    #                 images.append(path)
-    #     images.sort(key=lambda x: x.lower())
-    #     return images
 
     def changeSavedir(self, _value=False):
         if self.defaultSaveDir is not None:

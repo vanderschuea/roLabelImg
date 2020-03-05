@@ -753,12 +753,12 @@ class Canvas(QWidget):
              self.selectedShape.isRotated and not self.rotateOutOfBound(0.1):
             self.selectedShape.rotate(0.1)
             self.shapeMoved.emit() 
-            self.update()  
+            self.update()
         elif key == Qt.Key_X and self.selectedShape and\
              self.selectedShape.isRotated and not self.rotateOutOfBound(0.01):
             self.selectedShape.rotate(0.01) 
             self.shapeMoved.emit()
-            self.update()  
+            self.update()
         elif key == Qt.Key_C and self.selectedShape and\
              self.selectedShape.isRotated and not self.rotateOutOfBound(-0.01):
             self.selectedShape.rotate(-0.01) 
@@ -893,3 +893,17 @@ class Canvas(QWidget):
         self.pixmap = None
         self.views = (None, None)
         self.update()
+
+    def copyShapes(self):
+        shapes = [
+            shape.copy() for shape in self.shapes if self.isVisible(shape)
+        ]
+        return shapes
+    
+    def setShapes(self, shapes):
+        self.shapes = shapes
+        self.repaint()
+    
+    def appendShapes(self, shapes):
+        self.shapes += shapes
+        self.repaint()
