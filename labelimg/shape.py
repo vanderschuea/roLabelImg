@@ -145,6 +145,7 @@ class Shape(object):
                 painter.fillPath(line_path, color)
 
             if self.center is not None:
+                # Draw center point
                 center_path = QPainterPath()
                 d = self.point_size / self.scale
                 center_path.addRect(self.center.x() - d / 2, self.center.y() - d / 2, d, d)
@@ -153,15 +154,16 @@ class Shape(object):
                     painter.fillPath(center_path, self.vertex_fill_color)
                 else:
                     painter.fillPath(center_path, QColor(0, 0, 0))
-
-    def paintNormalCenter(self, painter):
-        if self.center is not None:
-            center_path = QPainterPath();
-            d = self.point_size / self.scale
-            center_path.addRect(self.center.x() - d / 2, self.center.y() - d / 2, d, d)
-            painter.drawPath(center_path)
-            if not self.isRotated:
-                painter.fillPath(center_path, QColor(0, 0, 0))
+                
+                # Draw direction from center to head
+                middle_segment = QPointF(
+                    (self.points[0].x()+self.points[1].x())/2.0,
+                    (self.points[0].y()+self.points[1].y())/2.0
+                )
+                cout_path = QPainterPath()
+                cout_path.moveTo(self.center)
+                cout_path.lineTo(middle_segment)
+                painter.drawPath(cout_path)
 
     def drawVertex(self, path, i):
         d = self.point_size / self.scale
