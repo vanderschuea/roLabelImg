@@ -575,6 +575,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.canvas.setShapes(shapes)
             else:
                 self.canvas.appendShapes(shapes)
+            self.setDirty()
 
     def resetState(self):
         self.itemsToShapes.clear()
