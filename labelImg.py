@@ -758,9 +758,9 @@ class MainWindow(QMainWindow, WindowMixin):
                 xy = adapt_pcd(np.array([[x, y]]))[0]*scale
                 shape.addPoint(QPointF(xy[0], xy[1]))
             shape.difficult = difficult
-            shape.direction = direction
             shape.isRotated = isRotated
             shape.close()
+            shape.rotate(direction)
             s.append(shape)
             self.addLabel(shape)
 

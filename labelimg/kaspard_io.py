@@ -71,24 +71,12 @@ class KaspardReader:
         cy = box["centerY"]
         w = box["width"]
         h = box["length"]
-        angle = np.radians(box["orientation"])
+        angle = np.pi/2-np.radians(box["orientation"]) # Invert for bc vizu is inverted
 
-        p0x, p0y = self.rotatePoint(cx, cy, cx - w/2, cy - h/2, -angle)
-        p1x, p1y = self.rotatePoint(cx, cy, cx + w/2, cy - h/2, -angle)
-        p2x, p2y = self.rotatePoint(cx, cy, cx + w/2, cy + h/2, -angle)
-        p3x, p3y = self.rotatePoint(cx, cy, cx - w/2, cy + h/2, -angle)
+        p0x, p0y = (cx - w/2, cy - h/2)
+        p1x, p1y = (cx + w/2, cy - h/2)
+        p2x, p2y = (cx + w/2, cy + h/2)
+        p3x, p3y = (cx - w/2, cy + h/2)
 
         points = [(p0x, p0y), (p1x, p1y), (p2x, p2y), (p3x, p3y)]
         self.shapes.append((label, points, angle, True, None, None, False))
-
-
-    def rotatePoint(self, xc,yc, xp,yp, theta):        
-        xoff = xp-xc
-        yoff = yp-yc
-
-        cosTheta = np.cos(theta)
-        sinTheta = np.sin(theta)
-        pResx = cosTheta * xoff + sinTheta * yoff
-        pResy = - sinTheta * xoff + cosTheta * yoff
-        # pRes = (xc + pResx, yc + pResy)
-        return xc+pResx, yc+pResy    

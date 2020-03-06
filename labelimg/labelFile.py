@@ -125,15 +125,14 @@ class LabelFile(object):
         points = shape['points']
         center = shape['center']
         direction = shape['direction']
-
         cx, cy = center
-        
+
         w = math.sqrt((points[0][0]-points[1][0]) ** 2 +
             (points[0][1]-points[1][1]) ** 2)
 
         h = math.sqrt((points[2][0]-points[1][0]) ** 2 +
             (points[2][1]-points[1][1]) ** 2)
 
-        angle = np.degrees(direction) # % math.pi
+        angle = np.degrees(direction+np.pi/2) # invert because image is inverted
 
         return (round(cx,4),round(cy,4),round(w,4),round(h,4),round(angle,6))

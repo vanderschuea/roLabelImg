@@ -77,10 +77,6 @@ class Shape(object):
         }
 
         self._closed = False
-        # if label is not None:
-        #     self.segment_color = DEFAULT_SEGMENT_COLORS[Shape.default_labels.index(label)+1]
-        # else:
-        #     self.segment_color = np.array([255,0,0])
         if line_color is not None:
             # Override the class line_color attribute
             # with an object attribute. Currently this
@@ -98,11 +94,11 @@ class Shape(object):
         self.direction = self.direction % (2 * math.pi)
 
     def rotatePoint(self, p, theta):
-        order = p-self.center;
-        cosTheta = math.cos(theta)
-        sinTheta = math.sin(theta)
-        pResx = cosTheta * order.x() + sinTheta * order.y()
-        pResy = - sinTheta * order.x() + cosTheta * order.y()
+        order = p-self.center
+        cosTheta = np.cos(theta)
+        sinTheta = np.sin(theta)
+        pResx =  cosTheta * order.x() + sinTheta * order.y()
+        pResy = -sinTheta * order.x() + cosTheta * order.y()
         pRes = QPointF(self.center.x() + pResx, self.center.y() + pResy)
         return pRes
 
