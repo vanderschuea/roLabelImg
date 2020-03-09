@@ -68,7 +68,6 @@ class Canvas(QWidget):
         # Set widget options.
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.WheelFocus)
-        self.verified = False
         # judge can draw rotate rect
         self.canDrawRotatedRect = True
         self.hideRotated = False
@@ -547,7 +546,7 @@ class Canvas(QWidget):
         # Paint rest of the data
         p = self._painter
 
-        # Recompute views
+        # Recompute and draw segmented views
         p.begin(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.HighQualityAntialiasing)
@@ -556,19 +555,19 @@ class Canvas(QWidget):
         p.scale(self.scale, self.scale)
         p.translate(self.offsetToCenter())
 
-        # p.drawPixmap(0, 0, self.pixmap)
         pcdh = self.pixmap.height()*2.05
         pcdw = pcdh*2
         mid_pcdh = self.pixmap.height()*1.05
         p.drawPixmap(pcdw, 0, self.views[0])
         p.drawPixmap(pcdw, self.pixmap.height()*1.05, self.views[1])
 
-        # draw projection
+        # Draw pcd projection on floor
         pcolor = self.pcd_zcolor if self.showZColor else self.pcd_icolor
         for i in range(len(self.pcd)):
             (x, y), color = self.pcd[i,:-1], pcolor[i]
             p.setPen(color)
             p.drawPoint(x*pcdh, y*pcdh)
+
 
         Shape.scale = self.scale
         for shape in visible_shapes:
@@ -603,14 +602,9 @@ class Canvas(QWidget):
             p.drawLine(leftTop.x(),rightBottom.y(),rightBottom.x(),leftTop.y())
 
         self.setAutoFillBackground(True)
-        if self.verified:
-            pal = self.palette()
-            pal.setColor(self.backgroundRole(), QColor(184, 239, 38, 128))
-            self.setPalette(pal)
-        else:
-            pal = self.palette()
-            pal.setColor(self.backgroundRole(), QColor(232, 232, 232, 255))
-            self.setPalette(pal)
+        pal = self.palette()
+        pal.setColor(self.backgroundRole(), QColor(232, 232, 232, 255))
+        self.setPalette(pal)
 
         p.end()
 

@@ -24,11 +24,9 @@ from labelimg.canvas import Canvas
 from labelimg.zoomWidget import ZoomWidget
 from labelimg.labelDialog import LabelDialog
 from labelimg.colorDialog import ColorDialog
-from labelimg.labelFile import LabelFile, LabelFileError
+from labelimg.labelFile import LabelFile
 from labelimg.toolBar import ToolBar
 from labelimg.kaspard_io import KaspardReader
-from labelimg.pascal_voc_io import PascalVocReader
-from labelimg.pascal_voc_io import XML_EXT
 from labelimg.ustr import ustr
 from labelimg.kaspard_utils import adapt_pcd, reverse_adapt_pcd
 
@@ -522,7 +520,6 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def setDirty(self):
         self.dirty = True
-        self.canvas.verified = False
         self.actions.save.setEnabled(True)
 
     def setClean(self):
@@ -776,7 +773,6 @@ class MainWindow(QMainWindow, WindowMixin):
         annotationFilePath = ustr(annotationFilePath)
         if self.labelFile is None:
             self.labelFile = LabelFile(self.default_labels)
-            self.labelFile.verified = self.canvas.verified
 
         def format_shape(s):
             scale = self.canvas.shape[1]
@@ -798,16 +794,9 @@ class MainWindow(QMainWindow, WindowMixin):
         shapes = [format_shape(shape) for shape in self.canvas.shapes]
         # Can add differrent annotation formats here
         try:
-            if self.usingPascalVocFormat is True:
-                print(f"Img: {self.filePath} -> Its xml: {annotationFilePath}")
-                self.labelFile.saveKaspardFormat(annotationFilePath, shapes)
-                # self.labelFile.savePascalVocFormat(annotationFilePath, shapes, self.filePath, self.imageData,
-                #                                    self.lineColor.getRgb(), self.fillColor.getRgb())
-            else:
-                self.labelFile.save(annotationFilePath, shapes, self.filePath, self.imageData,
-                                    self.lineColor.getRgb(), self.fillColor.getRgb())
+            self.labelFile.saveKaspardFormat(annotationFilePath, shapes)
             return True
-        except LabelFileError as e:
+        except IOError as e:
             self.errorMessage(u'Error saving label data',
                               u'<b>%s</b>' % e)
             return False
@@ -920,38 +909,27 @@ class MainWindow(QMainWindow, WindowMixin):
             fileWidgetItem.setSelected(True)
 
         if unicodeFilePath and os.path.exists(unicodeFilePath):
-            if LabelFile.isLabelFile(unicodeFilePath):
-                try:
-                    self.labelFile = LabelFile(self.default_labels)
-                except LabelFileError as e:
-                    self.errorMessage(u'Error opening file',
-                                      (u"<p><b>%s</b></p>"
-                                       u"<p>Make sure <i>%s</i> is a valid label file.")
-                                      % (e, unicodeFilePath))
-                    self.status("Error reading %s" % unicodeFilePath)
-                    return False
-                self.imageData = self.labelFile.imageData
-                self.lineColor = QColor(*self.labelFile.lineColor)
-                self.fillColor = QColor(*self.labelFile.fillColor)
-            else:
-                # Load image:
-                # read data first and store for saving into label file.
-                self.imageData = read(unicodeFilePath, None)
-                self.labelFile = None
+            # Paths
+            self.filePath = unicodeFilePath
+            pfilepath = Path(self.filePath)
+            self.pcdpath = pfilepath.parents[1] / "pcd" / (pfilepath.stem+".pcd")
+            fp = Path(filePath)
+            kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+
+            # Load image
+            self.imageData = read(unicodeFilePath, None)
             image = QImage.fromData(self.imageData)
             if image.isNull():
                 self.errorMessage(u'Error opening file',
                                   u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
                 self.status("Error reading %s" % unicodeFilePath)
                 return False
+
+            # Send image to canvas and redraw
             self.status("Loaded %s" % os.path.basename(unicodeFilePath))
             self.image = image
-            self.filePath = unicodeFilePath
-            pfilepath = Path(self.filePath)
-            self.pcdpath = pfilepath.parents[1] / "pcd" / (pfilepath.stem+".pcd")
             self.canvas.loadPixmap(image, filePath)
-            if self.labelFile:
-                self.loadLabels(self.labelFile.shapes)
+
             self.setClean()
             self.canvas.setEnabled(True)
             self.adjustScale(initial=True)
@@ -959,25 +937,14 @@ class MainWindow(QMainWindow, WindowMixin):
             self.addRecentFile(self.filePath)
             self.toggleActions(True)
 
-            # Label xml file and show bound box according to its filename
-            if self.usingPascalVocFormat is True:
-                if self.defaultSaveDir is not None:
-                    basename = os.path.basename(
-                        os.path.splitext(self.filePath)[0]) + XML_EXT
-                    xmlPath = os.path.join(self.defaultSaveDir, basename)
-                    self.loadPascalXMLByFilename(xmlPath)
-                else:
-                    fp = Path(filePath)
-                    kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
-                    if os.path.isfile(kaspardpath):
-                        self.loadKaspardConfByFilename(kaspardpath)
-
+            # Load label
+            if os.path.isfile(kaspardpath):
+                self.loadKaspardConfByFilename(kaspardpath)
             self.setWindowTitle(__appname__ + ' ' + filePath)
 
             # Default : select last item if there is at least one item
             if self.labelList.count():
                 self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
-                # self.labelList.setItemSelected(self.labelList.item(self.labelList.count()-1), True)
 
             self.canvas.setFocus(True)
             return True
@@ -1123,16 +1090,6 @@ class MainWindow(QMainWindow, WindowMixin):
     def verifyImg(self, _value=False):
         # Proceding next image without dialog if having any label
          if self.filePath is not None:
-            try:
-                self.labelFile.toggleVerify()
-            except AttributeError:
-                # If the labelling file does not exist yet, create if and
-                # re-save it with the verified attribute.
-                self.saveFile()
-                if self.labelFile is not None:
-                    self.labelFile.toggleVerify()
-            if self.labelFile is not None:
-                self.canvas.verified = True
             self.paintCanvas()
             self.saveFile()
 
@@ -1157,7 +1114,6 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.autoSaving is True:
             if self.dirty is True: 
                 self.dirty = False
-                self.canvas.verified = True               
                 self.saveFile()
 
         if not self.mayContinue():
@@ -1311,18 +1267,6 @@ class MainWindow(QMainWindow, WindowMixin):
         kaspardReader = KaspardReader(confpath, self.default_labels)
         shapes = kaspardReader.getShapes()
         self.loadLabels(shapes)
-        self.canvas.verified = kaspardReader.verified
-    
-    def loadPascalXMLByFilename(self, xmlPath):
-        if self.filePath is None:
-            return
-        if os.path.isfile(xmlPath) is False:
-            return
-
-        tVocParseReader = PascalVocReader(xmlPath)
-        shapes = tVocParseReader.getShapes()
-        self.loadLabels(shapes)
-        self.canvas.verified = tVocParseReader.verified
 
 
 class Settings(object):

@@ -4,11 +4,9 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from kapnet.data.datasets import read_sample
 
 class KaspardWriter:
-    def __init__(self, foldername, filename, imgsize, dbsrc=None, localimg_path=None, default_labels=None):
-        self.foldername = foldername
+    def __init__(self, filename, dbsrc=None, localimg_path=None, default_labels=None):
         self.filename = filename
         self.dbsrc = dbsrc
-        self.imgsize = imgsize
         self.boxlist = []
         self.roboxlist = []
         self.localimg_path = localimg_path
