@@ -24,11 +24,10 @@ from labelimg.canvas import Canvas
 from labelimg.zoomWidget import ZoomWidget
 from labelimg.labelDialog import LabelDialog
 from labelimg.colorDialog import ColorDialog
-from labelimg.labelFile import LabelFile
 from labelimg.toolBar import ToolBar
-from labelimg.kaspard_io import KaspardReader
 from labelimg.ustr import ustr
 from labelimg.kaspard_utils import adapt_pcd, reverse_adapt_pcd
+import labelimg.labelFile as labelIO
 
 __appname__ = 'labelImg'
 
@@ -580,7 +579,6 @@ class MainWindow(QMainWindow, WindowMixin):
         self.labelList.clear()
         self.filePath = None
         self.imageData = None
-        self.labelFile = None
         self.canvas.resetState()
 
     def currentItem(self):
@@ -747,7 +745,11 @@ class MainWindow(QMainWindow, WindowMixin):
         del self.shapesToItems[shape]
         del self.itemsToShapes[item]
 
-    def loadLabels(self, shapes):
+    def loadLabels(self, confpath):
+        if self.filePath is None:
+            return
+        shapes = labelIO.readKaspardFormat(confpath, self.default_labels)
+
         s = []
         scale = self.canvas.shape[1]
         for label, points, direction, isRotated, line_color, fill_color, difficult in shapes:
@@ -771,8 +773,6 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def saveLabels(self, annotationFilePath):
         annotationFilePath = ustr(annotationFilePath)
-        if self.labelFile is None:
-            self.labelFile = LabelFile(self.default_labels)
 
         def format_shape(s):
             scale = self.canvas.shape[1]
@@ -794,7 +794,7 @@ class MainWindow(QMainWindow, WindowMixin):
         shapes = [format_shape(shape) for shape in self.canvas.shapes]
         # Can add differrent annotation formats here
         try:
-            self.labelFile.saveKaspardFormat(annotationFilePath, shapes)
+            labelIO.saveKaspardFormat(annotationFilePath, shapes, self.default_labels)
             return True
         except IOError as e:
             self.errorMessage(u'Error saving label data',
@@ -939,7 +939,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
             # Load label
             if os.path.isfile(kaspardpath):
-                self.loadKaspardConfByFilename(kaspardpath)
+                self.loadLabels(kaspardpath)
             self.setWindowTitle(__appname__ + ' ' + filePath)
 
             # Default : select last item if there is at least one item
@@ -1134,12 +1134,12 @@ class MainWindow(QMainWindow, WindowMixin):
             self.loadFile(filename)
 
 
-    def openFile(self, _value=False):
+    def openFile(self, _value=False):  # TODO: change to support floor inference
         if not self.mayContinue():
             return
         path = os.path.dirname(ustr(self.filePath)) if self.filePath else '.'
         formats = ['*.%s' % fmt.data().decode("ascii").lower() for fmt in QImageReader.supportedImageFormats()]
-        filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % LabelFile.suffix])
+        filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % labelIO.suffix])
         filename = QFileDialog.getOpenFileName(self, '%s - Choose Image or Label file' % __appname__, path, filters)
         if filename:
             if isinstance(filename, (tuple, list)):
@@ -1157,10 +1157,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def saveFileDialog(self):
         caption = '%s - Choose File' % __appname__
-        filters = 'File (*%s)' % LabelFile.suffix
+        filters = 'File (*%s)' % labelIO.suffix
         openDialogPath = self.currentPath()
         dlg = QFileDialog(self, caption, openDialogPath, filters)
-        dlg.setDefaultSuffix(LabelFile.suffix[1:])
+        dlg.setDefaultSuffix(labelIO.suffix[1:])
         dlg.setAcceptMode(QFileDialog.AcceptSave)
         filenameWithoutExtension = os.path.splitext(self.filePath)[0]
         dlg.selectFile(filenameWithoutExtension)
@@ -1257,16 +1257,6 @@ class MainWindow(QMainWindow, WindowMixin):
                     line = line.strip()
                     self.labelHist.append(line)
                 self.default_labels = self.labelHist
-
-    def loadKaspardConfByFilename(self, confpath):
-        if self.filePath is None:
-            return
-        if os.path.isfile(confpath) is False:
-            return
-        
-        kaspardReader = KaspardReader(confpath, self.default_labels)
-        shapes = kaspardReader.getShapes()
-        self.loadLabels(shapes)
 
 
 class Settings(object):
