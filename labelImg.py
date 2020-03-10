@@ -28,6 +28,8 @@ from labelimg.toolBar import ToolBar
 from labelimg.ustr import ustr
 from labelimg.kaspard_utils import adapt_pcd, reverse_adapt_pcd
 import labelimg.labelFile as labelIO
+import threading
+import pyautogui
 
 __appname__ = 'labelImg'
 
@@ -77,6 +79,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def __init__(self, defaultFilename=None, defaultPrefdefClassFile=None):
         super(MainWindow, self).__init__()
+        self.finished = True
         self.setWindowTitle(__appname__)
         # Save as Pascal voc xml
         self.defaultSaveDir = None
@@ -202,12 +205,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
         opendir = action('&Open Dir', self.openDir,
                          'Ctrl+u', 'open', u'Open Dir')
+        
+        reloadCanvas = action('&Reset image scale', self.reloadCanvas,
+                                'Ctrl+Shift+r', 'reload')
 
         changeSavedir = action('&Change default saved Annotation dir', self.changeSavedir,
                                'Ctrl+r', 'open', u'Change default saved Annotation dir')
-
-        openAnnotation = action('&Open Annotation', self.openAnnotation,
-                                'Ctrl+Shift+O', 'openAnnotation', u'Open Annotation')
 
         openNextImg = action('&Next Image', self.openNextImg,
                              'd', 'next', u'Open Next')
@@ -355,13 +358,13 @@ class MainWindow(QMainWindow, WindowMixin):
             labelList=labelMenu)
 
         addActions(self.menus.file,
-                   (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, saveAs, close, None, quit))
+                   (open, opendir, changeSavedir, self.menus.recentFiles, save, saveAs, close, None, quit))
         addActions(self.menus.help, (help,))
         addActions(self.menus.view, (
             labels, advancedMode, None,
             hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
-            fitWindow, fitWidth))
+            fitWindow, fitWidth, reloadCanvas))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -751,7 +754,7 @@ class MainWindow(QMainWindow, WindowMixin):
         shapes = labelIO.readKaspardFormat(confpath, self.default_labels)
 
         s = []
-        scale = self.canvas.shape[1]
+        scale = self.canvas.getScaleFromQImg(self.image)
         for label, points, direction, isRotated, line_color, fill_color, difficult in shapes:
             shape = Shape(label=label, default_labels=self.default_labels)
             for x, y in points:
@@ -762,20 +765,24 @@ class MainWindow(QMainWindow, WindowMixin):
             shape.close()
             shape.rotate(direction)
             s.append(shape)
-            self.addLabel(shape)
 
             if line_color:
                 shape.line_color = QColor(*line_color)
             if fill_color:
                 shape.fill_color = QColor(*fill_color)
+        self.canvas.loadShapes(s, repaint=False)
+        self._tmp_shapes = s
 
-        self.canvas.loadShapes(s)
+    def loadTmpShapes(self):
+        for shape in self._tmp_shapes:
+            self.addLabel(shape)
+        del self._tmp_shapes
 
     def saveLabels(self, annotationFilePath):
         annotationFilePath = ustr(annotationFilePath)
 
         def format_shape(s):
-            scale = self.canvas.shape[1]
+            scale = self.canvas.get_scale_from_qimg(self.image)
             rescale = lambda x,y: reverse_adapt_pcd(np.array([[x, y]])/scale)[0]
             return dict(label=s.label,
                         line_color=s.line_color.getRgb()
@@ -909,46 +916,57 @@ class MainWindow(QMainWindow, WindowMixin):
             fileWidgetItem.setSelected(True)
 
         if unicodeFilePath and os.path.exists(unicodeFilePath):
-            # Paths
-            self.filePath = unicodeFilePath
-            pfilepath = Path(self.filePath)
-            self.pcdpath = pfilepath.parents[1] / "pcd" / (pfilepath.stem+".pcd")
-            fp = Path(filePath)
-            kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+            import threading
+            def _load():
+                self.finished = False
+                # Paths
+                self.filePath = unicodeFilePath
+                pfilepath = Path(self.filePath)
+                self.pcdpath = pfilepath.parents[1] / "pcd" / (pfilepath.stem+".pcd")
+                fp = Path(filePath)
+                kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
 
-            # Load image
-            self.imageData = read(unicodeFilePath, None)
-            image = QImage.fromData(self.imageData)
-            if image.isNull():
-                self.errorMessage(u'Error opening file',
-                                  u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
-                self.status("Error reading %s" % unicodeFilePath)
-                return False
+                # Load image
+                self.imageData = read(unicodeFilePath, None)
+                image = QImage.fromData(self.imageData)
+                if image.isNull():
+                    self.finished=True
+                    pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
+                self.image = image
+                self.canvas.loadPixmap(image, filePath, repaint=False)
 
-            # Send image to canvas and redraw
-            self.status("Loaded %s" % os.path.basename(unicodeFilePath))
-            self.image = image
-            self.canvas.loadPixmap(image, filePath)
+                # Load label
+                if os.path.isfile(kaspardpath):
+                    self.loadLabels(kaspardpath)
 
-            self.setClean()
-            self.canvas.setEnabled(True)
-            self.adjustScale(initial=True)
-            self.paintCanvas()
-            self.addRecentFile(self.filePath)
-            self.toggleActions(True)
+                # Add to canvas
+                self.finished=True
+                pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack                   
 
-            # Load label
-            if os.path.isfile(kaspardpath):
-                self.loadLabels(kaspardpath)
-            self.setWindowTitle(__appname__ + ' ' + filePath)
-
-            # Default : select last item if there is at least one item
-            if self.labelList.count():
-                self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
-
-            self.canvas.setFocus(True)
+            threading.Thread(target=_load).start()
             return True
         return False
+
+    def reloadCanvas(self):
+        if self.image.isNull():
+            self.errorMessage(u'Error opening file',
+                            u"<p>Make sure <i>%s</i> is a valid image file." % self.filePath)
+            self.status("Error reading %s" % self.filePath)
+            return
+        self.status("Loaded %s" % os.path.basename(self.filePath))
+
+        self.setWindowTitle(__appname__ + ' ' + self.filePath)
+        self.loadTmpShapes()
+        self.setClean()
+        self.canvas.setEnabled(True)
+        self.adjustScale(initial=True)
+        self.paintCanvas()
+        self.addRecentFile(self.filePath)
+        self.toggleActions(True)
+        # Default : select last item if there is at least one item
+        if self.labelList.count():
+            self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
+        self.canvas.setFocus(True)
 
     def resizeEvent(self, event):
         if self.canvas and not self.image.isNull()\
@@ -1045,20 +1063,6 @@ class MainWindow(QMainWindow, WindowMixin):
                                      ('Change saved folder', self.defaultSaveDir))
         self.statusBar().show()
 
-    def openAnnotation(self, _value=False):
-        if self.filePath is None:
-            return
-
-        path = os.path.dirname(ustr(self.filePath))\
-            if self.filePath else '.'
-        if self.usingPascalVocFormat:
-            filters = "Open Annotation XML file (%s)" % \
-                      ' '.join(['*.xml'])
-            filename = QFileDialog.getOpenFileName(self,'%s - Choose a xml file' % __appname__, path, filters)
-            if filename:
-                if isinstance(filename, (tuple, list)):
-                    filename = filename[0]
-            self.loadPascalXMLByFilename(filename)
 
     def openDir(self, _value=False):
         if not self.mayContinue():

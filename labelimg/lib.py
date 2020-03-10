@@ -37,6 +37,9 @@ def newAction(parent, text, slot=None, shortcut=None, icon=None,
         a.setToolTip(tip)
         a.setStatusTip(tip)
     if slot is not None:
+        def t_slot():
+            if parent.finished:
+                slot()
         a.triggered.connect(slot)
     if checkable:
         a.setCheckable(True)

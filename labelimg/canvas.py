@@ -84,6 +84,10 @@ class Canvas(QWidget):
         w = self.pixmap.height()*4.10+self.pixmap.width()
         return w, h
 
+    @staticmethod
+    def getScaleFromQImg(qimg):
+        return qimg.height()*2.05
+
     def enterEvent(self, ev):
         self.overrideCursor(self._cursor)
 
@@ -852,23 +856,29 @@ class Canvas(QWidget):
         self.drawingPolygon.emit(False)
         self.update()
 
-    def loadPixmap(self, img, filePath):
-        self.pcd, (pcd_zcolor, pcd_icolor), self.pixmap_sample = project_pcd(filePath)
-        self.pcd_zcolor = [QColor(*cx) for cx in pcd_zcolor]
-        self.pcd_icolor = [QColor(cx, cx, cx, 255) for cx in pcd_icolor]
-        self.pixmap = pmap = QPixmap.fromImage(img)
+    def loadPixmap(self, img, filePath, repaint=True):
+        pcd, (pcd_zcolor, pcd_icolor), self.pixmap_sample = project_pcd(filePath)
+        pcd_zcolor = [QColor(*cx) for cx in pcd_zcolor]
+        pcd_icolor = [QColor(cx, cx, cx, 255) for cx in pcd_icolor]
+        pmap = QPixmap.fromImage(img)
         # nh = round(pmap.height()*0.475)
         self.views = (
             pmap,#.scaledToHeight(nh, mode=Qt.SmoothTransformation),
             pmap#.scaledToHeight(nh, mode=Qt.SmoothTransformation)
         )
         self.shapes = []
-        self.repaint()
+        self.pcd = pcd
+        self.pcd_zcolor = pcd_zcolor
+        self.pcd_icolor = pcd_icolor
+        self.pixmap = pmap
+        if repaint:
+            self.repaint()
 
-    def loadShapes(self, shapes):
+    def loadShapes(self, shapes, repaint=True):
         self.shapes = list(shapes)
         self.current = None
-        self.repaint()
+        if repaint:
+            self.repaint()
 
     def setShapeVisible(self, shape, value):
         self.visible[shape] = value
