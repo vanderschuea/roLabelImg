@@ -27,6 +27,8 @@ from labelimg.colorDialog import ColorDialog
 from labelimg.toolBar import ToolBar
 from labelimg.ustr import ustr
 from labelimg.kaspard_utils import adapt_pcd, reverse_adapt_pcd
+from labelimg.kaspard_utils import read_config, write_config, read_pcd, save_image_from_pcd
+from labelimg.kaspard_utils import segment_floor, segment_bed, init_networks
 import labelimg.labelFile as labelIO
 import threading
 import pyautogui
@@ -105,19 +107,19 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Main widgets and related state.
         self.labelDialog = LabelDialog(parent=self, listItem=self.labelHist)
-        
+
         self.itemsToShapes = {}
         self.shapesToItems = {}
         self.prevLabelText = ''
 
         listLayout = QVBoxLayout()
         listLayout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Create a widget for using default label
         self.useDefautLabelCheckbox = QCheckBox(u'Use default label')
         self.useDefautLabelCheckbox.setChecked(False)
         self.defaultLabelTextLine = QLineEdit()
-        useDefautLabelQHBoxLayout = QHBoxLayout()       
+        useDefautLabelQHBoxLayout = QHBoxLayout()
         useDefautLabelQHBoxLayout.addWidget(self.useDefautLabelCheckbox)
         useDefautLabelQHBoxLayout.addWidget(self.defaultLabelTextLine)
         useDefautLabelContainer = QWidget()
@@ -130,7 +132,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.editButton = QToolButton()
         self.editButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-        # Add some of widgets to listLayout 
+        # Add some of widgets to listLayout
         listLayout.addWidget(self.editButton)
         listLayout.addWidget(self.diffcButton)
         listLayout.addWidget(useDefautLabelContainer)
@@ -205,7 +207,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         opendir = action('&Open Dir', self.openDir,
                          'Ctrl+u', 'open', u'Open Dir')
-        
+
         reloadCanvas = action('&Reset image scale', self.reloadCanvas,
                                 'Ctrl+Shift+r', 'reload')
 
@@ -252,6 +254,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
         advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
                               'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
+                              checkable=True)
+
+        autoSave = action('Auto &Save', self.toggleAutoSave,
+                              'Alt+S', 'autosave', u'Toggle Auto-save',
                               checkable=True)
 
         hideAll = action('&Hide\nRectBox', partial(self.togglePolygons, False),
@@ -340,7 +346,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               fileMenuActions=(
                                   open, opendir, save, saveAs, close, quit),
                               beginner=(), advanced=(),
-                              editMenu=(edit, copy, delete,
+                              editMenu=(edit, copy, delete, autoSave,
                                         None, color1, color2, copyAll, pasteAll, replaceAll),
                               beginnerContext=(create, edit, copy, delete),
                               advancedContext=(createMode, editMode, edit, copy,
@@ -480,6 +486,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.populateModeActions()
 
+        # Load segmentation models
+        self.floor_model, self.bed_model = init_networks(["data/models/floor", "data/models/bed"])
+
     ## Support Functions ##
 
     def noShapes(self):
@@ -497,6 +506,9 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             pass
             # self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
+
+    def toggleAutoSave(self):
+        self.autoSaving = not self.autoSaving
 
     def populateModeActions(self):
         if self.beginner():
@@ -566,7 +578,7 @@ class MainWindow(QMainWindow, WindowMixin):
             if destroy:
                 for shape in self.canvas.shapes:
                     self.remLabel(shape)
-            
+
             shapes = [shape.copy() for shape in self.copied_shapes]
             for shape in shapes:
                 self.addLabel(shape)
@@ -633,7 +645,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.restoreCursor()
             self.actions.create.setEnabled(True)
             self.actions.createRo.setEnabled(True)
-            
+
 
     def toggleDrawMode(self, edit=True):
         self.canvas.setEditing(edit)
@@ -782,7 +794,7 @@ class MainWindow(QMainWindow, WindowMixin):
         annotationFilePath = ustr(annotationFilePath)
 
         def format_shape(s):
-            scale = self.canvas.get_scale_from_qimg(self.image)
+            scale = self.canvas.getScaleFromQImg(self.image)
             rescale = lambda x,y: reverse_adapt_pcd(np.array([[x, y]])/scale)[0]
             return dict(label=s.label,
                         line_color=s.line_color.getRgb()
@@ -901,6 +913,7 @@ class MainWindow(QMainWindow, WindowMixin):
             item.setCheckState(Qt.Checked if value else Qt.Unchecked)
 
     def loadFile(self, filePath=None):
+        print(filePath)
         """Load the specified file, or the last opened file if None."""
         self.resetState()
         self.canvas.setEnabled(False)
@@ -922,18 +935,49 @@ class MainWindow(QMainWindow, WindowMixin):
                 # Paths
                 self.filePath = unicodeFilePath
                 pfilepath = Path(self.filePath)
-                self.pcdpath = pfilepath.parents[1] / "pcd" / (pfilepath.stem+".pcd")
+
+                # check for extension
                 fp = Path(filePath)
+
                 kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+                if not kaspardpath.exists():
+                    kaspardpath = Path("data") / "conf" / (fp.stem+".toml")
+                if not kaspardpath.exists():
+                    pcd = read_pcd(pfilepath)
+                    conf = segment_floor(self.floor_model, pcd)
+                else:
+                    pcd = None
+                    conf = read_config(kaspardpath)
+                if "bed" not in conf:
+                    if pcd is None:
+                        pcd = read_pcd(pfilepath)
+                    # Annotate bed
+                    conf = segment_bed(self.bed_model, conf, pcd)
+                    # Save config here
+                    write_config(kaspardpath, conf)
+
 
                 # Load image
-                self.imageData = read(unicodeFilePath, None)
+                imgPath = fp.parents[1] / "image" / (fp.stem+".png")
+                if not imgPath.exists():
+                    imgPath = Path("data") / "image" / (fp.stem+".png")
+                if not imgPath.exists(): # create image for easier reloading
+                    if pcd is None:
+                        pcd = read_pcd(pfilepath)
+                    save_image_from_pcd(imgPath, pcd)
+                self.imageData = read(imgPath, None)
                 image = QImage.fromData(self.imageData)
                 if image.isNull():
                     self.finished=True
+                    self.canvas.setLoading(False)
                     pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
                 self.image = image
-                self.canvas.loadPixmap(image, filePath, repaint=False)
+                samplePaths = {
+                    "conf": kaspardpath,
+                    "image": imgPath,
+                    "pcd": self.filePath
+                }
+                self.canvas.loadPixmap(image, samplePaths, repaint=False)
 
                 # Load label
                 if os.path.isfile(kaspardpath):
@@ -941,8 +985,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
                 # Add to canvas
                 self.finished=True
-                pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack                   
+                self.canvas.setLoading(False)
+                pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
 
+            self.canvas.setLoading(True)
             threading.Thread(target=_load).start()
             return True
         return False
@@ -1033,18 +1079,18 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.mayContinue():
             self.loadFile(filename)
 
-    
+
     def scanAllImages(self, folderPath):
-        extensions = ('.png',)
+        extensions = (labelIO.infix,)
         images = []
 
-        for path in (Path(folderPath)/"image").iterdir():
+        for path in (Path(folderPath)/"pcd").iterdir():
             if str(path).lower().endswith(extensions):
                 path = str(path.absolute())
                 images.append(path)
         images.sort(key=lambda x: x.lower())
         return images
-    
+
 
     def changeSavedir(self, _value=False):
         if self.defaultSaveDir is not None:
@@ -1074,9 +1120,11 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.lastOpenDir is not None and len(self.lastOpenDir) > 1:
             path = self.lastOpenDir
 
-        dirpath = ustr(QFileDialog.getExistingDirectory(self,
-                                                     '%s - Open Directory' % __appname__, path,  QFileDialog.ShowDirsOnly
-                                                     | QFileDialog.DontResolveSymlinks))
+        dirpath = ustr(QFileDialog.getExistingDirectory(
+            self,
+            '%s - Open Directory' % __appname__, path,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        ))
 
         if dirpath is not None and len(dirpath) > 1:
             self.lastOpenDir = dirpath
@@ -1098,6 +1146,11 @@ class MainWindow(QMainWindow, WindowMixin):
             self.saveFile()
 
     def openPrevImg(self, _value=False):
+        if self.autoSaving:
+            if self.dirty:
+                self.dirty = False
+                self.saveFile()
+
         if not self.mayContinue():
             return
 
@@ -1115,8 +1168,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def openNextImg(self, _value=False):
         # Proceding next image without dialog if having any label
-        if self.autoSaving is True:
-            if self.dirty is True: 
+        if self.autoSaving:
+            if self.dirty:
                 self.dirty = False
                 self.saveFile()
 
@@ -1143,7 +1196,7 @@ class MainWindow(QMainWindow, WindowMixin):
             return
         path = os.path.dirname(ustr(self.filePath)) if self.filePath else '.'
         formats = ['*.%s' % fmt.data().decode("ascii").lower() for fmt in QImageReader.supportedImageFormats()]
-        filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % labelIO.suffix])
+        filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % labelIO.infix])
         filename = QFileDialog.getOpenFileName(self, '%s - Choose Image or Label file' % __appname__, path, filters)
         if filename:
             if isinstance(filename, (tuple, list)):

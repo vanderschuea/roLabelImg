@@ -13,8 +13,8 @@ import toml
 
 from kapnet.data.datasets import read_sample
 
+infix = ".pcd"
 suffix = ".toml"
-
 def convertPoints2RotatedBndBox(shape):
     points = shape['points']
     center = shape['center']
@@ -41,7 +41,7 @@ def saveKaspardFormat(filename, shapes, default_labels):
         direction = shape["direction"]
         rbbox = convertPoints2RotatedBndBox(shape)
         writer.add_bbox(*rbbox, label)
-    
+
     if Path(filename).exists():
         oldconfig = KaspardReader.read_conf(filename)
     else:
@@ -56,7 +56,7 @@ class KaspardWriter:
     def __init__(self, filename, default_labels=None):
         self.filename = filename
         self.roboxlist = []
-    
+
     def add_bbox(self, cx, cy, w, h, angle, name, difficult=None):
         robndbox = {'centerX': float(cx), 'centerY': float(cy), 'width': float(w), 'length': float(h),
                     'orientation': float(angle)}
@@ -66,7 +66,7 @@ class KaspardWriter:
     def append_objects(self, config):
         for obj in self.roboxlist:
             config.setdefault(obj["name"], []).append(obj)
-    
+
     def save(self, targetfile=None, oldConfig=None):
         if oldConfig is None:
             oldConfig = {}
@@ -82,7 +82,6 @@ class KaspardWriter:
 
 
 class KaspardReader:
-    
     def __init__(self, filepath, default_labels=None):
         self.shapes = []
         self.filepath = filepath

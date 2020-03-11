@@ -1,0 +1,84 @@
+version = 1
+augmentation_function = 'default'
+type = 'SGrid_BedCompute_fused+SM'
+act_time = '0'
+
+[network]
+type = 'fusion_net'
+bn = true
+block = 'residual'
+conv_transpose = false
+last_act = 'linear'
+big_drop = 0.3
+small_drop = 0.15
+se_ratio = 16
+input_format = ['image', 'depth_height_1', 'depth_normalsxyzheight_3']
+output_format = ['mask_normal3']
+multi_scale = false
+n_params = 36640591872.0
+n_ops = 8644447.0
+
+[network.architecture]
+first = 32
+width = [64, 72, 96, 128, 72, 64, 64]
+
+[network.architecture.enc]
+width = [64, 72, 96, 128]
+repeat = [2, 2, 3, 4]
+dilation = [1, 1, 1, 1]
+
+[network.architecture.dec]
+width = [72, 64, 64]
+repeat = [2, 2, 1]
+
+[training]
+batch_size = 8
+accumulation = 4
+loss = ['CrossEntropyLoss']
+n_epochs = 70
+type = 'default'
+
+[training.optimizer]
+lr = 0.001
+type = 'AdamW'
+weight_decay = 1e-5
+
+[training.scheduler]
+type = 'MultiStepLR'
+milestones = [30, 55]
+gamma = 0.1
+
+[val_dataset]
+
+[test_dataset]
+type = 'Default'
+resize = 'later'
+dimensions = [1, 128, 192]
+
+[dataset]
+type = 'Default'
+dtypes = ['image', 'depth_height', 'depth_normalsxyzheight', 'mask_normal3']
+resize = 'crop3'
+name = 'tmp_ivhkvhx8'
+classes = ['floor', 'bed', '', '']
+channels_first = true
+dimensions = [1, 128, 128]
+
+[dataset.mask]
+weights = [0.5, 1.0, 1.5]
+
+[augmentation]
+horizontal_flip = 0.5
+zoom_range = 0.2
+
+[saves]
+save_best_only = true
+path = 'logs/2020-02-06T161634_SGrid_BedCompute_fused+SM/Clairval/tmp'
+monitor = 'val_mask_miou'
+act_time = '0'
+
+[git]
+branch = 'master'
+commit = 'd06340c31d2bfac30706008fc6501774fd55d411'
+modified = ['configs/base.json', 'configs/defaults.json', 'kapnet/annotations/segmentation.py']
+diff = 'logs/2020-02-06T161634_SGrid_BedCompute_fused+SM/Clairval/tmp/0/diff.patch'

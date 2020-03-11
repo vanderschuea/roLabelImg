@@ -1,0 +1,78 @@
+version = 1
+augmentation_function = 'default'
+type = 'Grid_FloorCompute'
+act_time = '9'
+
+[network]
+type = 'conf_unet'
+bn = true
+block = 'residual'
+conv_transpose = false
+last_act = 'linear'
+big_drop = 0.2
+small_drop = 0.1
+se_ratio = 16
+input_format = ['image', 'depth_xyztcoZzL_3']
+output_format = ['mask_normalYdgYOs']
+
+[network.architecture]
+first = 32
+width = [64, 72, 96, 128, 72, 64, 64]
+
+[network.architecture.enc]
+width = [64, 72, 96, 128]
+repeat = [2, 2, 3, 4]
+
+[network.architecture.dec]
+width = [72, 64, 64]
+repeat = [2, 2, 1]
+
+[training]
+batch_size = 11
+accumulation = 3
+loss = ['CrossEntropyLoss', 'MSELoss', 'MSELoss']
+n_epochs = 60
+type = 'default'
+
+[training.optimizer]
+lr = 0.0005
+type = 'AdamW'
+weight_decay = 1e-6
+
+[training.scheduler]
+type = 'MultiStepLR'
+milestones = [20, 40]
+gamma = 0.1
+
+[val_dataset]
+
+[test_dataset]
+type = 'Default'
+resize = 'later'
+dimensions = [1, 128, 192]
+
+[dataset]
+type = 'Default'
+dtypes = ['image', 'depth_xyztcoZzL', 'mask_normalYdgYOs']
+resize = 'crop3'
+name = 'tmp_0eihx3jg'
+auto_weights = false
+classes = ['floor', 'bed', '', '']
+channels_first = true
+dimensions = [1, 128, 128]
+
+[augmentation]
+horizontal_flip = 0.5
+zoom_range = 0.2
+
+[saves]
+save_best_only = true
+path = 'logs/2019-12-22T162215_Grid_FloorCompute/Clairval/tmp'
+monitor = 'val_mask_miou'
+act_time = '9'
+
+[git]
+branch = 'master'
+commit = 'ad30a88991a8c70e877063188ebc92b7ae9535cb'
+modified = ['configs/base.json', 'configs/defaults.json', 'kapnet/models/double_net.py']
+diff = 'logs/2019-12-22T162215_Grid_FloorCompute/Clairval/tmp/9/diff.patch'

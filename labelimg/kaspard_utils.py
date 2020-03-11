@@ -1,13 +1,14 @@
 import open3d
 from kapnet.pointcloud.utils import transform_with_conf
-from kapnet.data.datasets import read_sample
+from kapnet.utils.io import read_sample, write_sample
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 from numba import jit
 from collections import defaultdict
-
+from kapnet.training.predict import init as predict_init, predict_floor, predict_object
+from kapnet.annotations.image import generate_sample as image_generate_sample
 
 def adapt_pcd(pcd):
     pcd[:,0] = (5.0+pcd[:,0])/5.0
@@ -19,15 +20,9 @@ def reverse_adapt_pcd(pcd):
     pcd[:,1] = 5.0-pcd[:,1]*5.0
     return pcd
 
-def project_pcd(filePath):
-    fpath = Path(filePath)
-    con_path = fpath.parents[1] / "conf" / (fpath.stem+".toml")
-    img_path = fpath.parents[1] / "image" / (fpath.stem+".png") 
-    pcd_path = fpath.parents[1] / "pcd" / (fpath.stem+".pcd")
+def project_pcd(samplePaths):
+    sample = read_sample(samplePaths)
 
-    sample = read_sample({
-        "conf": con_path, "image": img_path, "pcd": pcd_path
-    })
     pcd = sample["pcd"]["points"]
     cfg = sample["conf"]
 
@@ -35,9 +30,9 @@ def project_pcd(filePath):
     flim = 0.10
     border = 5.0
     pcd = transform_with_conf(pcd, cfg, do_bed_transform=False)
-    sample["pcd"] = pcd.copy() #TODO: is copy necessary?
+    sample["pcd"] = pcd.copy()
     pcd = np.nan_to_num(pcd) # NaN->0<flim => filtered
-    
+
     cnorm = plt.Normalize(vmin=flim, vmax=zlim)
     cmap = cmx.ScalarMappable(norm=cnorm, cmap=plt.get_cmap("magma"))
     cmap_img = cmx.ScalarMappable(norm=cnorm, cmap=plt.get_cmap("viridis"))
@@ -96,3 +91,34 @@ def segment_img(sample, visible_shapes, scale, hide_floor):
                 img[ok_key] = alpha*im_ok + (1-alpha)*colors[key]*np.ones_like(im_ok)
 
     return imgs[0].astype(np.uint8), imgs[1].astype(np.uint8)
+
+
+def init_networks(paths):
+    """
+        paths: list of paths in string format
+    """
+    networks = []
+    for dir_path in paths:
+        dir_path = Path(dir_path)
+        networks.append(predict_init(dir_path))
+    return networks
+
+def segment_floor(model, pcd):
+    return predict_floor(model, {}, pcd)
+
+def segment_bed(model, conf, pcd):
+    return predict_object(model, conf, pcd)
+
+def read_pcd(path):
+    return read_sample({"pcd": path})["pcd"]
+
+def read_config(path):
+    return read_sample({"conf": path})["conf"]
+
+def write_config(path, conf):
+    write_sample({"conf": conf}, {"conf": path})
+
+def save_image_from_pcd(path, pcd):
+    img = image_generate_sample(None, {"pcd": pcd})
+    write_sample({"image": img}, {"image": path})
+
