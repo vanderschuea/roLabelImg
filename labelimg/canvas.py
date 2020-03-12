@@ -508,6 +508,12 @@ class Canvas(QWidget):
             self.update()
             return shape
 
+    def flipSelected(self):
+        if self.selectedShape:
+            self.selectedShape.rotate(math.pi)
+            return True
+        return False
+
     def copySelectedShape(self):
         if self.selectedShape:
             shape = self.selectedShape.copy()
