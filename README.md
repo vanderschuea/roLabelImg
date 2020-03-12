@@ -7,7 +7,6 @@ This annotator tool loads pointclouds and automatically partially annotates them
 Before installing this you should follow the install instructions on [this repository](https://github.com/vanderschuea/KapNet). This code will only run with `python3.6+`!!
 
 ### Ubuntu
-`sudo apt-get install pyqt5-dev-tools`
 
 `pip3 install pyautogui PyQt5 numba`
 
@@ -16,7 +15,6 @@ Before installing this you should follow the install instructions on [this repos
 `python3 labelImg.py`
 
 ### Windows (not tested yet)
-Install Qt5 [here](https://www.riverbankcomputing.com/software/pyqt/download5)
 
 `pip3 install pyautogui PyQt5 numba`
 
