@@ -785,9 +785,10 @@ class MainWindow(QMainWindow, WindowMixin):
         self._tmp_shapes = s
 
     def loadTmpShapes(self):
-        for shape in self._tmp_shapes:
-            self.addLabel(shape)
-        del self._tmp_shapes
+        if hasattr(self, "_tmp_shapes"):  # Check if image wasn't skipped too fast
+            for shape in self._tmp_shapes:
+                self.addLabel(shape)
+            del self._tmp_shapes
 
     def saveLabels(self, annotationFilePath):
         annotationFilePath = ustr(annotationFilePath)
@@ -912,7 +913,6 @@ class MainWindow(QMainWindow, WindowMixin):
             item.setCheckState(Qt.Checked if value else Qt.Unchecked)
 
     def loadFile(self, filePath=None):
-        print(filePath)
         """Load the specified file, or the last opened file if None."""
         self.resetState()
         self.canvas.setEnabled(False)
@@ -985,7 +985,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 # Add to canvas
                 self.finished=True
                 self.canvas.setLoading(False)
-                time.sleep(0.5)  # Little hack #2
+                time.sleep(0.2)  # Little hack #2
                 pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
 
             self.canvas.setLoading(True)
@@ -1037,9 +1037,11 @@ class MainWindow(QMainWindow, WindowMixin):
         h1 = self.centralWidget().height() - e
         a1 = w1 / h1
         # Calculate a new scale value based on the pixmap's aspect ratio.
-        w2, h2 = self.canvas.shape
-        a2 = w2 / h2
-        return w1 / w2 if a2 >= a1 else h1 / h2
+        if hasattr(self.canvas, "shape"):
+            w2, h2 = self.canvas.shape
+            a2 = w2 / h2
+            return w1 / w2 if a2 >= a1 else h1 / h2
+        return 1
 
     def scaleFitWidth(self):
         # The epsilon does not seem to work too well here.

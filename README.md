@@ -48,5 +48,8 @@ With the ***left click*** you can select a *bbox* to **move it around** or selec
 With the ***right click*** you can select a *shape* to **check its options** or select a *corner* to **rotate** the *bbox*.
 Holding `Ctrl` and using the `ScrollWheel` you can zoom in or out.
 
+## Known bugs
+Sometimes the anottator will be 'stuck' with only `loading` displayed on the screen. If this goes on for more than 2-3 seconds press `Ctrl+Shift+R`. This bug is only visual and stems from a bad refresh of the canvas after a threaded operation.
+
 ## Licence
 Free software: [MIT license](https://github.com/vanderschuea/roLabelImg/blob/master/LICENSE)
