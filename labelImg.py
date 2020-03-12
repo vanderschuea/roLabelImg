@@ -489,13 +489,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.populateModeActions()
 
-        # Create data subdirs
-        Path("data/conf").mkdir(parents=True, exist_ok=True)
-        Path("data/image").mkdir(parents=True, exist_ok=True)
         self.fileListFromOpenDir = False
 
         # Load segmentation models
-        self.floor_model, self.bed_model = init_networks(["data/models/floor", "data/models/bed"])
+        data_dir = Path(__file__).parent / "data"
+        self.floor_model, self.bed_model = init_networks([data_dir/"models/floor", data_dir/"models/bed"])
 
     ## Support Functions ##
 
@@ -947,10 +945,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
                 # check for extension
                 fp = Path(filePath)
-
-                kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
-                if not kaspardpath.exists():
-                    kaspardpath = Path("data") / "conf" / (fp.stem+".toml")
+                if (fp.parents[1] / "conf").exists():
+                    kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+                else:
+                    kaspardpath = fp.parent / (fp.stem+".toml")
                 if not kaspardpath.exists():
                     pcd = read_pcd(pfilepath)
                     conf = segment_floor(self.floor_model, pcd)
@@ -967,9 +965,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
 
                 # Load image
-                imgPath = fp.parents[1] / "image" / (fp.stem+".png")
-                if not imgPath.exists():
-                    imgPath = Path("data") / "image" / (fp.stem+".png")
+                if (fp.parents[1] / "image").exists():
+                    imgPath = fp.parents[1] / "image" / (fp.stem+".png")
+                else:
+                    imgPath = fp.parent / (fp.stem + ".png")
                 if not imgPath.exists(): # create image for easier reloading
                     if pcd is None:
                         pcd = read_pcd(pfilepath)
@@ -1414,7 +1413,7 @@ def get_main_app(argv=[]):
     # Tzutalin 201705+: Accept extra agruments to change predefined class file
     # Usage : labelImg.py image predefClassFile
     win = MainWindow(argv[1] if len(argv) >= 2 else None,
-                     argv[2] if len(argv) >= 3 else os.path.join('data', 'predefined_classes.txt'))
+                     argv[2] if len(argv) >= 3 else os.path.join(Path(__file__).parent, 'data', 'predefined_classes.txt'))
     win.show()
     return app, win
 
