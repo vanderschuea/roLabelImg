@@ -14,6 +14,12 @@ Before installing this you should follow the install instructions on [this repos
 
 `python3 labelImg.py`
 
+If you want to use labelImg anywhere, you can also install it using pip : 
+
+```bash
+pip install -e .
+```
+
 ### Windows (not tested yet)
 
 `pip3 install pyautogui PyQt5 numba`
