@@ -485,6 +485,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.populateModeActions()
 
+        # Create data subdirs
+        Path("data/conf").mkdir(parents=True, exist_ok=True)
+        Path("data/image").mkdir(parents=True, exist_ok=True)
+
         # Load segmentation models
         self.floor_model, self.bed_model = init_networks(["data/models/floor", "data/models/bed"])
 
@@ -1191,8 +1195,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if not self.mayContinue():
             return
         path = os.path.dirname(ustr(self.filePath)) if self.filePath else '.'
-        formats = ['*.%s' % fmt.data().decode("ascii").lower() for fmt in QImageReader.supportedImageFormats()]
-        filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % labelIO.infix])
+        filters = "Image & Label files (*%s)" % labelIO.infix
         filename = QFileDialog.getOpenFileName(self, '%s - Choose Image or Label file' % __appname__, path, filters)
         if filename:
             if isinstance(filename, (tuple, list)):

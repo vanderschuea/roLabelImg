@@ -9,7 +9,7 @@ Before installing this you should follow the install instructions on [this repos
 ### Ubuntu
 `sudo apt-get install pyqt5-dev-tools`
 
-`sudo pip3 install 'pyautogui' 'PyQt5'`
+`pip3 install pyautogui PyQt5 numba`
 
 `make qt5py3`
 
@@ -18,7 +18,7 @@ Before installing this you should follow the install instructions on [this repos
 ### Windows (not tested yet)
 Install Qt5 [here](https://www.riverbankcomputing.com/software/pyqt/download5)
 
-`pip3 install 'pyautogui' 'PyQt5'`
+`pip3 install pyautogui PyQt5 numba`
 
 `pyrcc5 -o libs/resources.py resources.qrc`
 

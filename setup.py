@@ -2,10 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from setuptools import setup
-from pathlib import Path
-
-Path("data/conf").mkdir(parents=True)
-Path("data/image").mkdir(parents=True)
 
 
 requirements = [
