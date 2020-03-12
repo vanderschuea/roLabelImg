@@ -32,6 +32,8 @@ from labelimg.kaspard_utils import segment_floor, segment_bed, init_networks
 import labelimg.labelFile as labelIO
 import threading
 import pyautogui
+import time
+
 
 __appname__ = 'labelImg'
 
@@ -986,6 +988,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 # Add to canvas
                 self.finished=True
                 self.canvas.setLoading(False)
+                time.sleep(0.5)  # Little hack #2
                 pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
 
             self.canvas.setLoading(True)
