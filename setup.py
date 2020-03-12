@@ -6,6 +6,7 @@ from setuptools import setup
 
 requirements = [
     'pyautogui',
+    'numba',
     'PyQt5'
 ]
 test_requirements = [
@@ -21,12 +22,12 @@ setup(
     author_email='tzu.ta.lin@gmail.com',
     url='https://github.com/vanderschuea/roLabelImg',
     packages=[
-        'labelImg', 'labelImg.libs'
+        'labelImg', 'labelImg.labelimg'
     ],
     package_dir={'labelImg': '.'},
     entry_points={
         'console_scripts': [
-            'labelImg=labelImg.labelImg:main'
+            'labelImg=labelImg:main'
         ]
     },
     include_package_data=True,
