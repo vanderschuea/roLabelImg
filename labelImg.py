@@ -90,6 +90,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.usingPascalVocFormat = True
         # For loading all image under a directory
         self.mImgList = []
+        self.mImgSet = {}
         self.dirname = None
         self.labelHist = []
         self.lastOpenDir = None
@@ -484,6 +485,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.zoomWidget.valueChanged.connect(self.paintCanvas)
 
         self.populateModeActions()
+
+        self.fileListFromOpenDir = False
 
         # Load segmentation models
         data_dir = Path(__file__).parent / "data"
@@ -923,8 +926,8 @@ class MainWindow(QMainWindow, WindowMixin):
         unicodeFilePath = ustr(filePath)
         # Tzutalin 20160906 : Add file list and dock to move faster
         # Highlight the file item
-        if unicodeFilePath and self.fileListWidget.count() > 0:
-            index = self.mImgList.index(unicodeFilePath)
+        if unicodeFilePath and filePath in self.mImgSet:
+            index = self.mImgSet[filePath]
             fileWidgetItem = self.fileListWidget.item(index)
             fileWidgetItem.setSelected(True)
 
@@ -1088,7 +1091,7 @@ class MainWindow(QMainWindow, WindowMixin):
         extensions = (labelIO.infix,)
         images = []
 
-        for path in (Path(folderPath)/"pcd").iterdir():
+        for path in Path(folderPath).iterdir():
             if str(path).lower().endswith(extensions):
                 path = str(path.absolute())
                 images.append(path)
@@ -1136,6 +1139,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.dirname = dirpath
         self.filePath = None
         self.fileListWidget.clear()
+        self.fileListFromOpenDir = True
         self.mImgList = self.scanAllImages(dirpath)
         self.openNextImg()
         for imgPath in self.mImgList:
@@ -1188,6 +1192,20 @@ class MainWindow(QMainWindow, WindowMixin):
         if filename:
             self.loadFile(filename)
 
+    def openIndex(self, currIndex):
+        # Proceding next image without dialog if having any label
+        if self.autoSaving:
+            if self.dirty:
+                self.dirty = False
+                self.saveFile()
+
+        if not self.mayContinue():
+            return
+
+        filename = self.mImgList[currIndex]
+
+        if filename:
+            self.loadFile(filename)
 
     def openFile(self, _value=False):  # TODO: change to support floor inference
         if not self.mayContinue():
@@ -1198,7 +1216,22 @@ class MainWindow(QMainWindow, WindowMixin):
         if filename:
             if isinstance(filename, (tuple, list)):
                 filename = filename[0]
-            self.loadFile(filename)
+            if self.fileListFromOpenDir: # Clear files opened with openDir
+                self.fileListWidget.clear()
+                self.fileListFromOpenDir = False
+                self.mImgList = []
+                self.mImgSet = {}
+            if filename in self.mImgSet:
+                index = self.mImgSet[filename]
+            else:
+                self.mImgList.append(filename)
+                self.mImgSet[filename] = len(self.mImgList)-1
+                item = QListWidgetItem(filename.split('/')[-1])
+                item._full_file = filename
+                self.fileListWidget.addItem(item)
+                index = -1
+            self.openIndex(index)
+
 
     def saveFile(self, _value=False):
         filepath = Path(self.filePath)
