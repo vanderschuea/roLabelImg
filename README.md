@@ -8,14 +8,20 @@ Before installing this you should follow the install instructions on [this repos
 
 ### Ubuntu
 `sudo apt-get install pyqt5-dev-tools`
+
 `sudo pip3 install 'pyautogui' 'PyQt5'`
+
 `make qt5py3`
+
 `python3 labelImg.py`
 
 ### Windows (not tested yet)
 Install Qt5 [here](https://www.riverbankcomputing.com/software/pyqt/download5)
+
 `pip3 install 'pyautogui' 'PyQt5'`
+
 `pyrcc5 -o libs/resources.py resources.qrc`
+
 `python3 labelImg.py`
 
 ## Key- and Mouse-bindings
@@ -45,7 +51,9 @@ Install Qt5 [here](https://www.riverbankcomputing.com/software/pyqt/download5)
 
 ### Mouse
 With the ***left click*** you can select a *bbox* to **move it around** or select a *corner* to **stretch** the *bbox*.
+
 With the ***right click*** you can select a *shape* to **check its options** or select a *corner* to **rotate** the *bbox*.
+
 Holding `Ctrl` and using the `ScrollWheel` you can zoom in or out.
 
 ## Known bugs
