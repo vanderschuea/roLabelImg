@@ -7,30 +7,23 @@ from pathlib import Path
 Path("data/conf").mkdir(parents=True)
 Path("data/image").mkdir(parents=True)
 
-with open('README.rst') as readme_file:
-    readme = readme_file.read()
-
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
 
 requirements = [
-    # TODO: put package requirements here
+    'pyautogui',
+    'PyQt5'
 ]
-
 test_requirements = [
-    'qt',
-    'qt4',
-    'libxml2'
+    'pyautogui',
+    'PyQt5'
 ]
 
 setup(
     name='labelImg',
-    version='1.3.3',
+    version='1.3.4',
     description="LabelImg is a graphical image annotation tool and label object bounding boxes in images",
-    long_description=readme + '\n\n' + history,
     author="TzuTa Lin",
     author_email='tzu.ta.lin@gmail.com',
-    url='https://github.com/tzutalin/labelImg',
+    url='https://github.com/vanderschuea/roLabelImg',
     packages=[
         'labelImg', 'labelImg.libs'
     ],
@@ -50,13 +43,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
     test_suite='tests',

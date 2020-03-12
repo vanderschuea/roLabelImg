@@ -222,9 +222,6 @@ class MainWindow(QMainWindow, WindowMixin):
         openPrevImg = action('&Prev Image', self.openPrevImg,
                              'q', 'prev', u'Open Prev')
 
-        verify = action('&Verify Image', self.verifyImg,
-                        'space', 'verify', u'Verify Image')
-
         save = action('&Save', self.saveFile,
                       'Ctrl+S', 'save', u'Save labels to file', enabled=False)
         saveAs = action('&Save As', self.saveFileAs,
@@ -384,7 +381,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open, opendir, openNextImg, openPrevImg, verify, save, None, create, createRo, copy, delete, None,
+            open, opendir, openNextImg, openPrevImg, save, None, create, createRo, copy, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
@@ -1141,12 +1138,6 @@ class MainWindow(QMainWindow, WindowMixin):
             item = QListWidgetItem(imgPath.split('/')[-1])
             item._full_file = imgPath
             self.fileListWidget.addItem(item)
-
-    def verifyImg(self, _value=False):
-        # Proceding next image without dialog if having any label
-         if self.filePath is not None:
-            self.paintCanvas()
-            self.saveFile()
 
     def openPrevImg(self, _value=False):
         if self.autoSaving:
