@@ -946,9 +946,10 @@ class MainWindow(QMainWindow, WindowMixin):
                 # check for extension
                 fp = Path(filePath)
                 if (fp.parents[1] / "conf").exists():
-                    kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+                    self.kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
                 else:
-                    kaspardpath = fp.parent / (fp.stem+".toml")
+                    self.kaspardpath = fp.parent / (fp.stem+".toml")
+                kaspardpath = self.kaspardpath
                 if not kaspardpath.exists():
                     pcd = read_pcd(pfilepath)
                     conf = segment_floor(self.floor_model, pcd)
@@ -1238,9 +1239,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
 
     def saveFile(self, _value=False):
-        filepath = Path(self.filePath)
-        annotpath = filepath.parents[1] / "conf" / (filepath.stem + ".toml")
-        self._saveFile(annotpath)
+        self._saveFile(self.kaspardpath)
 
     def saveFileAs(self, _value=False):
         assert not self.image.isNull(), "cannot save empty image"
