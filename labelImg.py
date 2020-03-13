@@ -252,6 +252,9 @@ class MainWindow(QMainWindow, WindowMixin):
                       'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
                       enabled=False)
 
+        flipOrientation = action('Flip\n RectBox 180°', self.flipSelectedShape,
+                        Qt.MiddleButton, 'flip', u'Flip', enabled=False) # FIXME: find better  and Working shortcut
+
         advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
                               'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
                               checkable=True)
@@ -341,7 +344,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
-                              fitWindow=fitWindow, fitWidth=fitWidth,
+                              fitWindow=fitWindow, fitWidth=fitWidth, flipOrientation=flipOrientation,
                               zoomActions=zoomActions,
                               fileMenuActions=(
                                   open, opendir, save, saveAs, close, quit),
@@ -382,7 +385,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open, opendir, openNextImg, openPrevImg, save, None, create, createRo, copy, delete, None,
+            open, opendir, openNextImg, openPrevImg, save, None, flipOrientation, createRo, copy, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
@@ -739,6 +742,7 @@ class MainWindow(QMainWindow, WindowMixin):
             else:
                 self.labelList.clearSelection()
         self.actions.delete.setEnabled(selected)
+        self.actions.flipOrientation.setEnabled(selected)
         self.actions.copy.setEnabled(selected)
         self.actions.edit.setEnabled(selected)
         self.actions.shapeLineColor.setEnabled(selected)
@@ -942,9 +946,10 @@ class MainWindow(QMainWindow, WindowMixin):
                 # check for extension
                 fp = Path(filePath)
                 if (fp.parents[1] / "conf").exists():
-                    kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+                    self.kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
                 else:
-                    kaspardpath = fp.parent / (fp.stem+".toml")
+                    self.kaspardpath = fp.parent / (fp.stem+".toml")
+                kaspardpath = self.kaspardpath
                 if not kaspardpath.exists():
                     pcd = read_pcd(pfilepath)
                     conf = segment_floor(self.floor_model, pcd)
@@ -1207,7 +1212,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if filename:
             self.loadFile(filename)
 
-    def openFile(self, _value=False):  # TODO: change to support floor inference
+    def openFile(self, _value=False):
         if not self.mayContinue():
             return
         path = os.path.dirname(ustr(self.filePath)) if self.filePath else '.'
@@ -1234,9 +1239,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
 
     def saveFile(self, _value=False):
-        filepath = Path(self.filePath)
-        annotpath = filepath.parents[1] / "conf" / (filepath.stem + ".toml")
-        self._saveFile(annotpath)
+        self._saveFile(self.kaspardpath)
 
     def saveFileAs(self, _value=False):
         assert not self.image.isNull(), "cannot save empty image"
@@ -1311,6 +1314,11 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.noShapes():
             for action in self.actions.onShapesPresent:
                 action.setEnabled(False)
+
+    def flipSelectedShape(self):
+        if self.canvas.flipSelected():
+            self.setDirty()
+            self.canvas.repaint()
 
     def chshapeLineColor(self):
         color = self.colorDialog.getColor(self.lineColor, u'Choose line color',
