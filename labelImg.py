@@ -29,6 +29,7 @@ from labelimg.ustr import ustr
 from labelimg.kaspard_utils import adapt_pcd, reverse_adapt_pcd
 from labelimg.kaspard_utils import read_config, write_config, read_pcd, save_image_from_pcd
 from labelimg.kaspard_utils import segment_floor, segment_bed, init_networks
+from labelimg.kaspard_utils import add_to_predict_queue, create_predict_server, predict_config
 import labelimg.labelFile as labelIO
 import threading
 import pyautogui
@@ -495,6 +496,10 @@ class MainWindow(QMainWindow, WindowMixin):
         data_dir = Path(__file__).parent / "data"
         self.floor_model, self.bed_model = init_networks([data_dir/"models/floor", data_dir/"models/bed"])
 
+        self.queue, self.predict_process = create_predict_server([data_dir/"models/floor", data_dir/"models/bed"])
+        add_to_qpartial = partial(add_to_predict_queue, filelist=self.mImgList, queue=self.queue)
+        self.fileListWidget.model().rowsInserted.connect(add_to_qpartial)
+
     ## Support Functions ##
 
     def noShapes(self):
@@ -945,24 +950,25 @@ class MainWindow(QMainWindow, WindowMixin):
 
                 # check for extension
                 fp = Path(filePath)
-                if (fp.parents[1] / "conf").exists():
-                    self.kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
-                else:
-                    self.kaspardpath = fp.parent / (fp.stem+".toml")
-                kaspardpath = self.kaspardpath
-                if not kaspardpath.exists():
-                    pcd = read_pcd(pfilepath)
-                    conf = segment_floor(self.floor_model, pcd)
-                else:
-                    pcd = None
-                    conf = read_config(kaspardpath)
-                if "bed" not in conf:
-                    if pcd is None:
-                        pcd = read_pcd(pfilepath)
-                    # Annotate bed
-                    conf = segment_bed(self.bed_model, conf, pcd)
-                    # Save config here
-                    write_config(kaspardpath, conf)
+                pcd, self.kaspardpath = predict_config(fp, self.floor_model, self.bed_model)
+                # if (fp.parents[1] / "conf").exists():
+                #     self.kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+                # else:
+                #     self.kaspardpath = fp.parent / (fp.stem+".toml")
+                # kaspardpath = self.kaspardpath
+                # if not kaspardpath.exists():
+                #     pcd = read_pcd(pfilepath)
+                #     conf = segment_floor(self.floor_model, pcd)
+                # else:
+                #     pcd = None
+                #     conf = read_config(kaspardpath)
+                # if "bed" not in conf:
+                #     if pcd is None:
+                #         pcd = read_pcd(pfilepath)
+                #     # Annotate bed
+                #     conf = segment_bed(self.bed_model, conf, pcd)
+                #     # Save config here
+                #     write_config(kaspardpath, conf)
 
 
                 # Load image
@@ -982,15 +988,15 @@ class MainWindow(QMainWindow, WindowMixin):
                     pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
                 self.image = image
                 samplePaths = {
-                    "conf": kaspardpath,
+                    "conf": self.kaspardpath,
                     "image": imgPath,
                     "pcd": self.filePath
                 }
                 self.canvas.loadPixmap(image, samplePaths, repaint=False)
 
                 # Load label
-                if os.path.isfile(kaspardpath):
-                    self.loadLabels(kaspardpath)
+                if os.path.isfile(self.kaspardpath):
+                    self.loadLabels(self.kaspardpath)
 
                 # Add to canvas
                 self.finished=True
@@ -1061,6 +1067,10 @@ class MainWindow(QMainWindow, WindowMixin):
     def closeEvent(self, event):
         if not self.mayContinue():
             event.ignore()
+        
+        # self.queue.close()
+        self.predict_process.terminate()
+        # self.predict_process.join()
         s = self.settings
         # If it loads images from dir, don't load it at the begining
         if self.dirname is None:
@@ -1145,7 +1155,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.filePath = None
         self.fileListWidget.clear()
         self.fileListFromOpenDir = True
-        self.mImgList = self.scanAllImages(dirpath)
+        self.mImgList.clear()
+        self.mImgList += self.scanAllImages(dirpath)
         self.openNextImg()
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath.split('/')[-1])
@@ -1224,7 +1235,7 @@ class MainWindow(QMainWindow, WindowMixin):
             if self.fileListFromOpenDir: # Clear files opened with openDir
                 self.fileListWidget.clear()
                 self.fileListFromOpenDir = False
-                self.mImgList = []
+                self.mImgList.clear()
                 self.mImgSet = {}
             if filename in self.mImgSet:
                 index = self.mImgSet[filename]

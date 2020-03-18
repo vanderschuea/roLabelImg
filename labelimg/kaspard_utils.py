@@ -9,6 +9,9 @@ from numba import jit
 from collections import defaultdict
 from kapnet.training.predict import init as predict_init, predict_floor, predict_object
 from kapnet.annotations.image import generate_sample as image_generate_sample
+import multiprocessing as mp
+from multiprocessing import Process, Queue
+from filelock import FileLock
 
 def adapt_pcd(pcd):
     pcd[:,0] = (5.0+pcd[:,0])/5.0
@@ -122,3 +125,44 @@ def save_image_from_pcd(path, pcd):
     img = image_generate_sample(None, {"pcd": pcd})
     write_sample({"image": img}, {"image": path})
 
+
+def predict_config(fp, floor_model, bed_model):
+    with FileLock(fp.parent / ("."+fp.name+".lock")):
+        if (fp.parents[1] / "conf").exists():
+            kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
+        else:
+            kaspardpath = fp.parent / (fp.stem+".toml")
+        
+        pcd = read_pcd(fp)
+        
+        if not kaspardpath.exists():
+            conf = segment_floor(floor_model, pcd)
+        else:
+            conf = read_config(kaspardpath)
+        if "bed" not in conf:
+            # Annotate bed
+            conf = segment_bed(bed_model, conf, pcd)
+            # Save config here
+            write_config(kaspardpath, conf)
+    
+    return pcd, kaspardpath
+        
+
+def predict_server(queue, model_paths):
+    networks = init_networks(model_paths)
+    while True:
+        pcd_file = queue.get()
+        predict_config(Path(pcd_file), networks[0], networks[1])
+
+def create_predict_server(model_paths):
+    ctx = mp.get_context('spawn')
+    queue = ctx.Queue()
+    p = ctx.Process(target=predict_server, args=(queue, model_paths))
+    p.start()
+    return queue, p
+
+def add_to_predict_queue(_parent, start, end, filelist=None, queue=None):
+    if queue is None or filelist is None:
+        raise RuntimeError("all arguments should be set !")
+    for i in range(start, end+1):
+        queue.put(filelist[i])
