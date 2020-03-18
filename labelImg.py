@@ -444,7 +444,7 @@ class MainWindow(QMainWindow, WindowMixin):
             }
 
         self.settings = settings = Settings(types)
-        # self.recentFiles = list(settings.get('recentFiles', []))
+        self.recentFiles = list(settings.get('recentFiles', []))
         size = settings.get('window/size', QSize(600, 500))
         position = settings.get('window/position', QPoint(0, 0))
         self.resize(size)
@@ -1377,7 +1377,10 @@ class Settings(object):
         return self._cast(key, self.data.value(key))
 
     def get(self, key, default=None):
-        return self._cast(key, self.data.value(key, default))
+        got = self.data.value(key, default)
+        if got is None:  # Fix edge case of crash due to None saved in self.data
+            got = default # If default is None, it is considered default behavior
+        return self._cast(key, got)
 
     def _cast(self, key, value):
         # XXX: Very nasty way of converting types to QVariant methods :P
