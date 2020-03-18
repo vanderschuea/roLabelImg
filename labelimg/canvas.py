@@ -925,10 +925,12 @@ class Canvas(QWidget):
 
     def setShapes(self, shapes):
         self.shapes = shapes
+        self.selectedShape = self.shapes[-1]
         self.repaint()
 
     def appendShapes(self, shapes):
         self.shapes += shapes
+        self.selectedShape = self.shapes[-1]
         self.repaint()
 
     def setLoading(self, loading=True):

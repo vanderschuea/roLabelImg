@@ -67,7 +67,7 @@ class Shape(object):
 
         self.direction = 0  # added by hy
         self.center = None # added by hy
-        self.isRotated = True 
+        self.isRotated = True
 
         self._highlightIndex = None
         self._highlightMode = self.NEAR_VERTEX
@@ -86,7 +86,7 @@ class Shape(object):
     @property
     def segment_color(self):
         return DEFAULT_SEGMENT_COLORS[Shape.default_labels.index(self.label)+1]
-    
+
     def rotate(self, theta):
         for i, p in enumerate(self.points):
             self.points[i] = self.rotatePoint(p, theta)
@@ -177,7 +177,7 @@ class Shape(object):
                     painter.fillPath(center_path, self.vertex_fill_color)
                 else:
                     painter.fillPath(center_path, QColor(0, 0, 0))
-                
+
                 # Draw direction from center to head
                 middle_segment = QPointF(
                     (self.points[0].x()+self.points[1].x())/2.0,
@@ -241,9 +241,9 @@ class Shape(object):
 
     def copy(self):
         shape = Shape("%s" % self.label)
-        shape.points = [p for p in self.points]
-        
-        shape.center = self.center
+        shape.points = [QPointF(p.x(), p.y()) for p in self.points]
+
+        shape.center = QPointF(self.center.x(), self.center.y())
         shape.direction = self.direction
         shape.isRotated = self.isRotated
 
@@ -254,7 +254,7 @@ class Shape(object):
             shape.line_color = self.line_color
         if self.fill_color != Shape.fill_color:
             shape.fill_color = self.fill_color
-        shape.difficult = self.difficult 
+        shape.difficult = self.difficult
         return shape
 
     def __len__(self):

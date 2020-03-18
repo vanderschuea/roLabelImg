@@ -594,8 +594,6 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.canvas.appendShapes(shapes)
             # Select last item
             self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
-            self.shapeSelectionChanged(True)
-            self.labelSelectionChanged()
 
             self.setDirty()
 
