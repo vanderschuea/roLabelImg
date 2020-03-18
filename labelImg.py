@@ -249,7 +249,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         delete = action('Delete\nRectBox', self.deleteSelectedShape,
                         'Delete', 'delete', u'Delete', enabled=False)
-        copy = action('&Duplicate\nRectBox', self.copySelectedShape,
+        copy = action('&Duplicate\nRectBox', self.duplicateSelectedShape,
                       'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
                       enabled=False)
 
@@ -445,7 +445,7 @@ class MainWindow(QMainWindow, WindowMixin):
             }
 
         self.settings = settings = Settings(types)
-        # self.recentFiles = list(settings.get('recentFiles', []))
+        self.recentFiles = list(settings.get('recentFiles', []))
         size = settings.get('window/size', QSize(600, 500))
         position = settings.get('window/position', QPoint(0, 0))
         self.resize(size)
@@ -597,6 +597,9 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.canvas.setShapes(shapes)
             else:
                 self.canvas.appendShapes(shapes)
+            # Select last item
+            self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
+
             self.setDirty()
 
     def resetState(self):
@@ -833,8 +836,8 @@ class MainWindow(QMainWindow, WindowMixin):
                               u'<b>%s</b>' % e)
             return False
 
-    def copySelectedShape(self):
-        self.addLabel(self.canvas.copySelectedShape())
+    def duplicateSelectedShape(self):
+        self.addLabel(self.canvas.duplicateSelectedShape())
         # fix copy and delete
         self.shapeSelectionChanged(True)
 
@@ -1157,11 +1160,13 @@ class MainWindow(QMainWindow, WindowMixin):
         self.fileListFromOpenDir = True
         self.mImgList.clear()
         self.mImgList += self.scanAllImages(dirpath)
-        self.openNextImg()
-        for imgPath in self.mImgList:
+        self.mImgSet = {}
+        for i, imgPath in enumerate(self.mImgList):
             item = QListWidgetItem(imgPath.split('/')[-1])
             item._full_file = imgPath
             self.fileListWidget.addItem(item)
+            self.mImgSet[imgPath] = i
+        self.openNextImg()
 
     def openPrevImg(self, _value=False):
         if self.autoSaving:
@@ -1381,7 +1386,10 @@ class Settings(object):
         return self._cast(key, self.data.value(key))
 
     def get(self, key, default=None):
-        return self._cast(key, self.data.value(key, default))
+        got = self.data.value(key, default)
+        if got is None:  # Fix edge case of crash due to None saved in self.data
+            got = default # If default is None, it is considered default behavior
+        return self._cast(key, got)
 
     def _cast(self, key, value):
         # XXX: Very nasty way of converting types to QVariant methods :P
