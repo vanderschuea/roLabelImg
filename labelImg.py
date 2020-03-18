@@ -248,7 +248,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         delete = action('Delete\nRectBox', self.deleteSelectedShape,
                         'Delete', 'delete', u'Delete', enabled=False)
-        copy = action('&Duplicate\nRectBox', self.copySelectedShape,
+        copy = action('&Duplicate\nRectBox', self.duplicateSelectedShape,
                       'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
                       enabled=False)
 
@@ -833,8 +833,8 @@ class MainWindow(QMainWindow, WindowMixin):
                               u'<b>%s</b>' % e)
             return False
 
-    def copySelectedShape(self):
-        self.addLabel(self.canvas.copySelectedShape())
+    def duplicateSelectedShape(self):
+        self.addLabel(self.canvas.duplicateSelectedShape())
         # fix copy and delete
         self.shapeSelectionChanged(True)
 
@@ -1151,11 +1151,13 @@ class MainWindow(QMainWindow, WindowMixin):
         self.fileListWidget.clear()
         self.fileListFromOpenDir = True
         self.mImgList = self.scanAllImages(dirpath)
-        self.openNextImg()
-        for imgPath in self.mImgList:
+        self.mImgSet = {}
+        for i, imgPath in enumerate(self.mImgList):
             item = QListWidgetItem(imgPath.split('/')[-1])
             item._full_file = imgPath
             self.fileListWidget.addItem(item)
+            self.mImgSet[imgPath] = i
+        self.openNextImg()
 
     def openPrevImg(self, _value=False):
         if self.autoSaving:

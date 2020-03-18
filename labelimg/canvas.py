@@ -514,7 +514,7 @@ class Canvas(QWidget):
             return True
         return False
 
-    def copySelectedShape(self):
+    def duplicateSelectedShape(self):
         if self.selectedShape:
             shape = self.selectedShape.copy()
             self.deSelectShape()
