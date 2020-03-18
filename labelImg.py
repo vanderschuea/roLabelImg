@@ -592,6 +592,11 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.canvas.setShapes(shapes)
             else:
                 self.canvas.appendShapes(shapes)
+            # Select last item
+            self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
+            self.shapeSelectionChanged(True)
+            self.labelSelectionChanged()
+
             self.setDirty()
 
     def resetState(self):
