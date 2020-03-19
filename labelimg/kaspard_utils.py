@@ -12,6 +12,8 @@ from kapnet.annotations.image import generate_sample as image_generate_sample
 import multiprocessing as mp
 from multiprocessing import Process, Queue
 from filelock import FileLock
+from tempfile import TemporaryDirectory
+
 
 def adapt_pcd(pcd):
     pcd[:,0] = (5.0+pcd[:,0])/5.0
@@ -126,8 +128,8 @@ def save_image_from_pcd(path, pcd):
     write_sample({"image": img}, {"image": path})
 
 
-def predict_config(fp, floor_model, bed_model):
-    with FileLock(fp.parent / ("."+fp.name+".lock")):
+def predict_config(fp, floor_model, bed_model, temppath):
+    with FileLock(temppath / (fp.name+".lock")):
         if (fp.parents[1] / "conf").exists():
             kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
         else:
@@ -148,18 +150,22 @@ def predict_config(fp, floor_model, bed_model):
     return pcd, kaspardpath
         
 
-def predict_server(queue, model_paths):
+def predict_server(queue, model_paths, tempdir):
     networks = init_networks(model_paths)
     while True:
         pcd_file = queue.get()
-        predict_config(Path(pcd_file), networks[0], networks[1])
+        try:
+            predict_config(Path(pcd_file), networks[0], networks[1], Path(tempdir))
+        except:
+            pass
 
 def create_predict_server(model_paths):
+    tempdir = TemporaryDirectory(prefix="ImgLabel-")
     ctx = mp.get_context('spawn')
     queue = ctx.Queue()
-    p = ctx.Process(target=predict_server, args=(queue, model_paths))
+    p = ctx.Process(target=predict_server, args=(queue, model_paths, tempdir.name))
     p.start()
-    return queue, p
+    return queue, p, tempdir
 
 def add_to_predict_queue(_parent, start, end, filelist=None, queue=None):
     if queue is None or filelist is None:

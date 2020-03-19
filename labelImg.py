@@ -496,7 +496,7 @@ class MainWindow(QMainWindow, WindowMixin):
         data_dir = Path(__file__).parent / "data"
         self.floor_model, self.bed_model = init_networks([data_dir/"models/floor", data_dir/"models/bed"])
 
-        self.queue, self.predict_process = create_predict_server([data_dir/"models/floor", data_dir/"models/bed"])
+        self.queue, self.predict_process, self.tempdir = create_predict_server([data_dir/"models/floor", data_dir/"models/bed"])
         add_to_qpartial = partial(add_to_predict_queue, filelist=self.mImgList, queue=self.queue)
         self.fileListWidget.model().rowsInserted.connect(add_to_qpartial)
 
@@ -953,7 +953,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
                 # check for extension
                 fp = Path(filePath)
-                pcd, self.kaspardpath = predict_config(fp, self.floor_model, self.bed_model)
+                pcd, self.kaspardpath = predict_config(fp, self.floor_model, self.bed_model, Path(self.tempdir.name))
                 # if (fp.parents[1] / "conf").exists():
                 #     self.kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
                 # else:
@@ -1073,6 +1073,7 @@ class MainWindow(QMainWindow, WindowMixin):
         
         # self.queue.close()
         self.predict_process.terminate()
+        self.tempdir.cleanup()
         # self.predict_process.join()
         s = self.settings
         # If it loads images from dir, don't load it at the begining
