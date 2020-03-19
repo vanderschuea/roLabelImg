@@ -40,7 +40,7 @@ def newAction(parent, text, slot=None, shortcut=None, icon=None,
         def t_slot():
             if parent.finished:
                 slot()
-        a.triggered.connect(slot)
+        a.triggered.connect(t_slot)
     if checkable:
         a.setCheckable(True)
     a.setEnabled(enabled)

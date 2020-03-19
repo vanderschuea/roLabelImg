@@ -34,6 +34,7 @@ import labelimg.labelFile as labelIO
 import threading
 import pyautogui
 import time
+import collections
 
 
 __appname__ = 'labelImg'
@@ -499,6 +500,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.queue, self.predict_process, self.tempdir = create_predict_server([data_dir/"models/floor", data_dir/"models/bed"])
         add_to_qpartial = partial(add_to_predict_queue, filelist=self.mImgList, queue=self.queue)
         self.fileListWidget.model().rowsInserted.connect(add_to_qpartial)
+        self._loader = None
+        self._loaderOk = collections.deque()
 
     ## Support Functions ##
 
@@ -944,75 +947,80 @@ class MainWindow(QMainWindow, WindowMixin):
             fileWidgetItem.setSelected(True)
 
         if unicodeFilePath and os.path.exists(unicodeFilePath):
-            import threading
-            def _load():
-                self.finished = False
-                # Paths
-                self.filePath = unicodeFilePath
-                pfilepath = Path(self.filePath)
+            self.finished = False
 
-                # check for extension
-                fp = Path(filePath)
-                pcd, self.kaspardpath = predict_config(fp, self.floor_model, self.bed_model, Path(self.tempdir.name))
-                # if (fp.parents[1] / "conf").exists():
-                #     self.kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
-                # else:
-                #     self.kaspardpath = fp.parent / (fp.stem+".toml")
-                # kaspardpath = self.kaspardpath
-                # if not kaspardpath.exists():
-                #     pcd = read_pcd(pfilepath)
-                #     conf = segment_floor(self.floor_model, pcd)
-                # else:
-                #     pcd = None
-                #     conf = read_config(kaspardpath)
-                # if "bed" not in conf:
-                #     if pcd is None:
-                #         pcd = read_pcd(pfilepath)
-                #     # Annotate bed
-                #     conf = segment_bed(self.bed_model, conf, pcd)
-                #     # Save config here
-                #     write_config(kaspardpath, conf)
+            class AsyncLoad(QThread):
+                def __init__(self, parent):
+                    super().__init__()
+                    self.parent = parent
+                def run(self):
+                    self.parent._loaderOk.append(False)
+                    # Paths
+                    self.parent.filePath = unicodeFilePath
+                    pfilepath = Path(self.parent.filePath)
+
+                    # check for extension
+                    fp = Path(filePath)
+                    pcd, self.parent.kaspardpath = predict_config(fp, self.parent.floor_model, self.parent.bed_model, Path(self.parent.tempdir.name))
+
+                    # Load image
+                    if (fp.parents[1] / "image").exists():
+                        imgPath = fp.parents[1] / "image" / (fp.stem+".png")
+                    else:
+                        imgPath = fp.parent / (fp.stem + ".png")
+                    if not imgPath.exists(): # create image for easier reloading
+                        if pcd is None:
+                            pcd = read_pcd(pfilepath)
+                        save_image_from_pcd(imgPath, pcd)
+                    self.parent.imageData = read(imgPath, None)
+                    image = QImage.fromData(self.parent.imageData)
+                    if image.isNull():
+                        self.parent.canvas.setLoading(False)
+                        self.parent._loaderOk.append(True)
+                        return
+
+                    self.parent.image = image
+                    samplePaths = {
+                        "conf": self.parent.kaspardpath,
+                        "image": imgPath,
+                        "pcd": self.parent.filePath
+                    }
+                    self.parent.canvas.loadPixmap(image, samplePaths, repaint=False)
+                    # Load label
+                    if os.path.isfile(self.parent.kaspardpath):
+                        self.parent.loadLabels(self.parent.kaspardpath)
 
 
-                # Load image
-                if (fp.parents[1] / "image").exists():
-                    imgPath = fp.parents[1] / "image" / (fp.stem+".png")
-                else:
-                    imgPath = fp.parent / (fp.stem + ".png")
-                if not imgPath.exists(): # create image for easier reloading
-                    if pcd is None:
-                        pcd = read_pcd(pfilepath)
-                    save_image_from_pcd(imgPath, pcd)
-                self.imageData = read(imgPath, None)
-                image = QImage.fromData(self.imageData)
-                if image.isNull():
-                    self.finished=True
-                    self.canvas.setLoading(False)
-                    pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
-                self.image = image
-                samplePaths = {
-                    "conf": self.kaspardpath,
-                    "image": imgPath,
-                    "pcd": self.filePath
-                }
-                self.canvas.loadPixmap(image, samplePaths, repaint=False)
+                    # Add to canvas
+                    self.parent.canvas.setLoading(False)
+                    self.parent._loaderOk.append(True)
 
-                # Load label
-                if os.path.isfile(self.kaspardpath):
-                    self.loadLabels(self.kaspardpath)
-
-                # Add to canvas
-                self.finished=True
-                self.canvas.setLoading(False)
-                time.sleep(0.2)  # Little hack #2
-                pyautogui.hotkey('ctrl', 'shift', 'r') # FIXME this is a hack
+            if self._loader is not None:
+                # Due to self.finished this is never called
+                # There seems to be a bug with Qthread.terminate() making
+                # the program hang. Untill it is resolved, loading will remain
+                # continuous and thus slower when maintaining button
+                # self._loaderOK is also there for when the terminate bug
+                # is resolved
+                self._loader.terminate()
+                self._loader.wait()
 
             self.canvas.setLoading(True)
-            threading.Thread(target=_load).start()
+            loader = AsyncLoad(self)
+            loader.setTerminationEnabled()
+            loader.finished.connect(self.reloadCanvas)
+            loader.start()
+            self._loader = loader # Assign to parent to avoid GC
             return True
         return False
 
     def reloadCanvas(self):
+        if self._loaderOk.popleft():
+            raise ValueError("bugged threading")
+        if len(self._loaderOk)==0 or not self._loaderOk[0]:
+            self._loader = None
+            return
+        self._loaderOk.popleft()
         if self.image.isNull():
             self.errorMessage(u'Error opening file',
                             u"<p>Make sure <i>%s</i> is a valid image file." % self.filePath)
@@ -1032,6 +1040,8 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.labelList.count():
             self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
         self.canvas.setFocus(True)
+        self.finished = True # Let other events pass
+        self._loader = None # Let thread be GC'ed
 
     def resizeEvent(self, event):
         if self.canvas and not self.image.isNull()\
@@ -1070,7 +1080,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def closeEvent(self, event):
         if not self.mayContinue():
             event.ignore()
-        
+
         # self.queue.close()
         self.predict_process.terminate()
         self.tempdir.cleanup()
