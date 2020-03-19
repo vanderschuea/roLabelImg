@@ -213,9 +213,6 @@ class MainWindow(QMainWindow, WindowMixin):
         opendir = action('&Open Dir', self.openDir,
                          'Ctrl+u', 'open', u'Open Dir')
 
-        reloadCanvas = action('&Reset image scale', self.reloadCanvas,
-                                'Ctrl+Shift+r', 'reload')
-
         changeSavedir = action('&Change default saved Annotation dir', self.changeSavedir,
                                'Ctrl+r', 'open', u'Change default saved Annotation dir')
 
@@ -375,7 +372,7 @@ class MainWindow(QMainWindow, WindowMixin):
             labels, advancedMode, None,
             hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
-            fitWindow, fitWidth, reloadCanvas))
+            fitWindow, fitWidth))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
