@@ -30,6 +30,7 @@ from labelimg.kaspard_utils import adapt_pcd, reverse_adapt_pcd
 from labelimg.kaspard_utils import read_config, write_config, read_pcd, save_image_from_pcd
 from labelimg.kaspard_utils import segment_floor, segment_bed, init_networks
 from labelimg.kaspard_utils import add_to_predict_queue, create_predict_server, predict_config
+from labelimg.utils import sorted_nicely
 import labelimg.labelFile as labelIO
 import time
 import collections
@@ -1119,7 +1120,7 @@ class MainWindow(QMainWindow, WindowMixin):
             if str(path).lower().endswith(extensions):
                 path = str(path.absolute())
                 images.append(path)
-        images.sort(key=lambda x: x.lower())
+        images = sorted_nicely(images) # .sort(key=lambda x: x.lower())
         return images
 
 
