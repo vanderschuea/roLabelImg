@@ -134,9 +134,9 @@ def predict_config(fp, floor_model, bed_model, temppath):
             kaspardpath = fp.parents[1] / "conf" / (fp.stem+".toml")
         else:
             kaspardpath = fp.parent / (fp.stem+".toml")
-        
+
         pcd = read_pcd(fp)
-        
+
         if not kaspardpath.exists():
             conf = segment_floor(floor_model, pcd)
         else:
@@ -146,9 +146,9 @@ def predict_config(fp, floor_model, bed_model, temppath):
             conf = segment_bed(bed_model, conf, pcd)
             # Save config here
             write_config(kaspardpath, conf)
-    
+
     return pcd, kaspardpath
-        
+
 
 def predict_server(queue, model_paths, tempdir):
     networks = init_networks(model_paths)

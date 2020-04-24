@@ -31,8 +31,6 @@ from labelimg.kaspard_utils import read_config, write_config, read_pcd, save_ima
 from labelimg.kaspard_utils import segment_floor, segment_bed, init_networks
 from labelimg.kaspard_utils import add_to_predict_queue, create_predict_server, predict_config
 import labelimg.labelFile as labelIO
-import threading
-import pyautogui
 import time
 import collections
 
