@@ -11,7 +11,7 @@ except ImportError:
 
 from labelimg.shape import Shape
 from labelimg.lib import distance
-from labelimg.kaspard_utils import project_pcd, segment_img
+from labelimg.kaspard_utils import ImgPcd
 import numpy as np
 import math
 import threading
@@ -555,9 +555,11 @@ class Canvas(QWidget):
             shape for shape in self.shapes if\
                 (shape.selected or not self._hideBackround) and self.isVisible(shape)
         ]
-        seg_images = segment_img(
-            self.pixmap_sample, visible_shapes, self.shape[1], self.hide_floor
+        seg_images = self.img_pcd.segment_img(
+            visible_shapes, self.shape[1], self.hide_floor
         )
+        pcd_zcolor = self.img_pcd.zcolor
+        pcd_icolor = self.img_pcd.icolor
 
         self.views = []
         for simg in seg_images:
@@ -585,9 +587,9 @@ class Canvas(QWidget):
         p.drawPixmap(pcdw, self.pixmap.height()*1.05, self.views[1])
 
         # Draw pcd projection on floor
-        pcolor = self.pcd_zcolor if self.showZColor else self.pcd_icolor
-        for i in range(len(self.pcd)):
-            (x, y), color = self.pcd[i,:-1], pcolor[i]
+        pcolor = pcd_zcolor if self.showZColor else pcd_icolor
+        for i in range(len(self.img_pcd.pcd2d)):
+            (x, y), color = self.img_pcd.pcd2d[i,:-1], pcolor[i]
             p.setPen(color)
             p.drawPoint(x*pcdh, y*pcdh)
 
@@ -876,19 +878,10 @@ class Canvas(QWidget):
         self.update()
 
     def loadPixmap(self, img, samplePaths, repaint=True):
-        pcd, (pcd_zcolor, pcd_icolor), self.pixmap_sample = project_pcd(samplePaths)
-        pcd_zcolor = [QColor(*cx) for cx in pcd_zcolor]
-        pcd_icolor = [QColor(cx, cx, cx, 255) for cx in pcd_icolor]
+        self.img_pcd = ImgPcd(samplePaths)
         pmap = QPixmap.fromImage(img)
-        # nh = round(pmap.height()*0.475)
-        self.views = (
-            pmap,#.scaledToHeight(nh, mode=Qt.SmoothTransformation),
-            pmap#.scaledToHeight(nh, mode=Qt.SmoothTransformation)
-        )
+        self.views = (pmap, pmap)
         self.shapes = []
-        self.pcd = pcd
-        self.pcd_zcolor = pcd_zcolor
-        self.pcd_icolor = pcd_icolor
         self.pixmap = pmap
         if repaint:
             self.repaint()
@@ -915,6 +908,32 @@ class Canvas(QWidget):
         self.restoreCursor()
         self.pixmap = None
         self.views = (None, None)
+        self.update()
+        self.img_pcd = None
+
+    def setCamRotation(self, camCfg):
+        if self.img_pcd is not None:
+            self.img_pcd.rotate_floor(self.img_pcd.make_cfg(**camCfg))
+            self.repaint()
+
+    def copyShapes(self):
+        shapes = [
+            shape.copy() for shape in self.shapes if self.isVisible(shape)
+        ]
+        return shapes
+
+    def setShapes(self, shapes):
+        self.shapes = shapes
+        self.selectedShape = self.shapes[-1]
+        self.repaint()
+
+    def appendShapes(self, shapes):
+        self.shapes += shapes
+        self.selectedShape = self.shapes[-1]
+        self.repaint()
+
+    def setLoading(self, loading=True):
+        self.loading = loading
         self.update()
 
     def copyShapes(self):

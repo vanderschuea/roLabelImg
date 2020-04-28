@@ -136,9 +136,54 @@ class MainWindow(QMainWindow, WindowMixin):
         self.editButton = QToolButton()
         self.editButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
+        # Create widgets to adjust floor angles and camera height
+        self.heightLabel = QLabel()
+        self.heightSlider = QSlider(Qt.Horizontal)
+        self.heightSlider.setMinimum(0)
+        self.heightSlider.setMaximum(500)
+        self.heightSlider.setSingleStep(5)
+        self.heightSliderScale = 100
+        self.heightSlider.valueChanged.connect(self.changeCam)
+        labeledHeightSlider = QHBoxLayout()
+        labeledHeightSlider.addWidget(self.heightLabel)
+        labeledHeightSlider.addWidget(self.heightSlider)
+
+        self.pitchLabel = QLabel()
+        self.pitchSlider = QDial()
+        self.pitchSlider.setMinimum(0)
+        self.pitchSlider.setMaximum(900)
+        self.pitchSlider.setSingleStep(5)
+        self.pitchSliderScale = 10
+        self.pitchSlider.valueChanged.connect(self.changeCam)
+        self.pitchSlider.setWrapping(False)
+        labeledPitchSlider = QVBoxLayout()
+        labeledPitchSlider.addWidget(self.pitchSlider)
+        labeledPitchSlider.addWidget(self.pitchLabel)
+
+        self.yawLabel = QLabel()
+        self.yawSlider = QDial()
+        self.yawSlider.setMinimum(-200)
+        self.yawSlider.setMaximum(200)
+        self.yawSlider.setSingleStep(5)
+        self.yawSliderScale = 10
+        self.yawSlider.valueChanged.connect(self.changeCam)
+        self.yawSlider.setWrapping(False)
+        labeledYawSlider = QVBoxLayout()
+        labeledYawSlider.addWidget(self.yawSlider)
+        labeledYawSlider.addWidget(self.yawLabel)
+
+        dials = QHBoxLayout()
+        dials.addLayout(labeledPitchSlider)
+        dials.addLayout(labeledYawSlider)
+        floorSliders = QVBoxLayout()
+        floorSliders.setContentsMargins(10,0,10,0)
+        floorSliders.addLayout(labeledHeightSlider)
+        floorSliders.addLayout(dials)
+
         # Add some of widgets to listLayout
         listLayout.addWidget(self.editButton)
-        listLayout.addWidget(self.diffcButton)
+        # listLayout.addWidget(self.diffcButton) # difficulty is unused
+        listLayout.addLayout(floorSliders)
         listLayout.addWidget(useDefautLabelContainer)
 
         # Create and add a widget for showing current label items
@@ -774,11 +819,29 @@ class MainWindow(QMainWindow, WindowMixin):
         del self.shapesToItems[shape]
         del self.itemsToShapes[item]
 
+    def _getCam(self):
+        """ Returns the actually set cam config"""
+        return {
+            "height": self.heightSlider.value()/self.heightSliderScale,
+            "inclination": self.pitchSlider.value()/self.pitchSliderScale,
+            "lateral_inclination": self.yawSlider.value()/self.yawSliderScale
+        }
+    def changeCam(self):
+        """ One of the three dials was used """
+        cam = self._getCam()
+
+        self.canvas.setCamRotation(cam)
+        self.heightLabel.setText(f"{cam['height']:.2f} m")
+        self.pitchLabel.setText(f"{cam['inclination']:2.1f}°")
+        self.yawLabel.setText(f"{cam['lateral_inclination']:2.1f}°")
+        self.setDirty()
+
     def loadLabels(self, confpath):
         if self.filePath is None:
             return
-        shapes = labelIO.readKaspardFormat(confpath, self.default_labels)
+        shapes, cam = labelIO.readKaspardFormat(confpath, self.default_labels)
 
+        # Setting Bbox'es
         s = []
         scale = self.canvas.getScaleFromQImg(self.image)
         for label, points, direction, isRotated, line_color, fill_color, difficult in shapes:
@@ -798,6 +861,11 @@ class MainWindow(QMainWindow, WindowMixin):
                 shape.fill_color = QColor(*fill_color)
         self.canvas.loadShapes(s, repaint=False)
         self._tmp_shapes = s
+
+        # Setting floor inclination
+        self.heightSlider.setValue(cam["height"]*self.heightSliderScale)
+        self.pitchSlider.setValue(cam["inclination"]*self.pitchSliderScale)
+        self.yawSlider.setValue(cam["lateral_inclination"]*self.yawSliderScale)
 
     def loadTmpShapes(self):
         if hasattr(self, "_tmp_shapes"):  # Check if image wasn't skipped too fast
@@ -826,9 +894,11 @@ class MainWindow(QMainWindow, WindowMixin):
                         isRotated = s.isRotated)
 
         shapes = [format_shape(shape) for shape in self.canvas.shapes]
+
+        cam = self._getCam()
         # Can add differrent annotation formats here
         try:
-            labelIO.saveKaspardFormat(annotationFilePath, shapes, self.default_labels)
+            labelIO.saveKaspardFormat(annotationFilePath, shapes, cam, self.default_labels)
             return True
         except IOError as e:
             self.errorMessage(u'Error saving label data',

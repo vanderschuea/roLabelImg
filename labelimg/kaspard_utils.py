@@ -1,5 +1,4 @@
 import open3d
-from kapnet.pointcloud.utils import transform_with_conf
 from kapnet.utils.io import read_sample, write_sample
 import numpy as np
 from pathlib import Path
@@ -13,6 +12,7 @@ import multiprocessing as mp
 from multiprocessing import Process, Queue
 from filelock import FileLock
 from tempfile import TemporaryDirectory
+from PyQt5.QtGui import QColor
 
 
 def adapt_pcd(pcd):
@@ -25,37 +25,81 @@ def reverse_adapt_pcd(pcd):
     pcd[:,1] = 5.0-pcd[:,1]*5.0
     return pcd
 
-def project_pcd(samplePaths):
-    sample = read_sample(samplePaths)
+class ImgPcd():
+    FLIM = 0.10  # Max floor height
+    ZFLIM = 2.2   # Max height
+    XYLIM = 5.0  # Max distance from camera
+    _CNORM = plt.Normalize(vmin=FLIM, vmax=ZFLIM)
+    CMAP = cmx.ScalarMappable(norm=_CNORM, cmap=plt.get_cmap("magma"))
+    CMAP_IMG = cmx.ScalarMappable(norm=_CNORM, cmap=plt.get_cmap("viridis"))
+    def __init__(self, samplePaths):
+        sample = read_sample(samplePaths)
+        self.pcd = sample["pcd"]["points"]
+        self.cfg = sample["conf"]
+        self.img = sample["image"].copy().astype(np.uint8)
+        self.img3d = np.stack([self.img, self.img, self.img], axis=-1)
+        self.rotate_floor(self.cfg)
 
-    pcd = sample["pcd"]["points"]
-    cfg = sample["conf"]
+    def make_cfg(self, **kwargs):
+        camera = {**self.cfg["camera"], **kwargs}
+        return {**self.cfg, "camera": camera}
 
-    zlim = 2.2
-    flim = 0.10
-    border = 5.0
-    pcd = transform_with_conf(pcd, cfg, do_bed_transform=False)
-    sample["pcd"] = pcd.copy()
-    pcd = np.nan_to_num(pcd) # NaN->0<flim => filtered
+    def rotate_floor(self, cfg):
+        self.rotated_pcd = fast_twconf(
+            self.pcd, cfg#, do_bed_transform=False
+        )
+        pcd = np.nan_to_num(self.rotated_pcd)
 
-    cnorm = plt.Normalize(vmin=flim, vmax=zlim)
-    cmap = cmx.ScalarMappable(norm=cnorm, cmap=plt.get_cmap("magma"))
-    cmap_img = cmx.ScalarMappable(norm=cnorm, cmap=plt.get_cmap("viridis"))
-    zcolor = np.clip(np.round(cmap.to_rgba(pcd[:,-1])*255), 0,255)
-    zimg = np.clip(np.round(cmap_img.to_rgba(pcd[:,-1])*255), 0,255)
+        zcolor = np.clip(np.round(self.CMAP.to_rgba(pcd[:,-1])*255), 0,255)
+        zimg = np.clip(np.round(self.CMAP_IMG.to_rgba(pcd[:,-1])*255), 0,255)
 
-    selected = (pcd[:,-1]>flim) & (pcd[:,-1]<=zlim) &\
-               (pcd[:,0]<=border) & (pcd[:,0]>=-border)& (pcd[:,1]<border)
+        selected = (pcd[:,-1]>self.FLIM) & (pcd[:,-1]<=self.ZFLIM) &\
+               (pcd[:,0]<=self.XYLIM) & (pcd[:,0]>=-self.XYLIM)& (pcd[:,1]<self.XYLIM)
 
-    img = sample["image"].copy().astype(np.uint8)
-    icolor = np.rot90(img,2).reshape(pcd.shape[0])[selected]
-    sample["image"] = np.stack([img, img, img], axis=-1)
-    sample["zimage"] = np.rot90(zimg[:,:3].reshape(img.shape[:2]+(3,)), 2)
+        icolor = np.rot90(self.img,2).reshape(pcd.shape[0])[selected]
 
-    pcd = pcd[selected, :]
-    pcd = adapt_pcd(pcd)
+        self.zimage = np.rot90(zimg[:,:3].reshape(self.img.shape[:2]+(3,)), 2)
 
-    return pcd, (zcolor[selected,:], icolor), sample
+        pcd = pcd[selected, :]
+        self.pcd2d = adapt_pcd(pcd)
+        zcolor = zcolor[selected,:]
+
+        # more efficient caching (QColor call is slow)
+        self.zcolor = [QColor(*cx) for cx in zcolor]
+        self.icolor = [QColor(cx, cx, cx, 255) for cx in icolor]
+
+
+    def segment_img(self, visible_shapes, scale, hide_floor):
+        pcd = pcd_orig = self.rotated_pcd
+        pcd = clean_pcd = np.nan_to_num(pcd)
+        pcd = adapt_pcd(pcd[:,:2])
+        pcd = pcd*scale
+
+        ok = defaultdict(lambda: np.zeros(pcd.shape[0], dtype=np.bool))
+        ok["default"] = np.zeros(pcd.shape[0], dtype=np.bool)
+        colors = {}
+        for shape in visible_shapes:
+            D = np.array((shape.points[0].x(), shape.points[0].y()))
+            A = np.array((shape.points[1].x(), shape.points[1].y()))
+            B = np.array((shape.points[2].x(), shape.points[2].y()))
+            ok[shape.label] = _segment_img(pcd, D, A, B, ok[shape.label])
+            colors[shape.label] = shape.segment_color
+        imgs = self.img3d.copy(), self.zimage.copy()
+        lok = None
+        for key, ok_key in ok.items():
+            ok_key = (~np.isnan(pcd_orig[:,0])) & ok_key
+            if hide_floor:
+                ok_key = ok_key & (clean_pcd[:,-1]>0.1)
+            ok_key = np.rot90(np.reshape(ok_key, imgs[0].shape[:2]), 2)
+            lok = ok_key
+            if np.sum(ok_key)>0:
+                alpha = 0.4
+                for img in imgs:
+                    im_ok = img[ok_key]
+                    img[ok_key] = alpha*im_ok + (1-alpha)*colors[key]*np.ones_like(im_ok)
+
+        return imgs[0].astype(np.uint8), imgs[1].astype(np.uint8)
+
 
 @jit(nopython=True)
 def _segment_img(pcd, D, A, B, ok): # About 10-50x faster with numba
@@ -64,38 +108,6 @@ def _segment_img(pcd, D, A, B, ok): # About 10-50x faster with numba
     APAB, APAD = AP@AB, AP@AD
     ok = ok | ((0<APAB) & (APAB<AB2) & (0<APAD) & (APAD<AD2) )
     return ok
-
-def segment_img(sample, visible_shapes, scale, hide_floor):
-    pcd = sample["pcd"]
-    pcd = pcd_orig = pcd
-    pcd = clean_pcd = np.nan_to_num(pcd) # copy to avoid changing sample["pcd"]
-    pcd = adapt_pcd(pcd[:,:2])
-    pcd = pcd*scale
-
-    ok = defaultdict(lambda: np.zeros(pcd.shape[0], dtype=np.bool))
-    ok["default"] = np.zeros(pcd.shape[0], dtype=np.bool)
-    colors = {}
-    for shape in visible_shapes:
-        D = np.array((shape.points[0].x(), shape.points[0].y()))
-        A = np.array((shape.points[1].x(), shape.points[1].y()))
-        B = np.array((shape.points[2].x(), shape.points[2].y()))
-        ok[shape.label] = _segment_img(pcd, D, A, B, ok[shape.label])
-        colors[shape.label] = shape.segment_color
-    imgs = sample["image"].copy(), sample["zimage"].copy()
-    lok = None
-    for key, ok_key in ok.items():
-        ok_key = (~np.isnan(pcd_orig[:,0])) & ok_key
-        if hide_floor:
-            ok_key = ok_key & (clean_pcd[:,-1]>0.1)
-        ok_key = np.rot90(np.reshape(ok_key, imgs[0].shape[:2]), 2)
-        lok = ok_key
-        if np.sum(ok_key)>0:
-            alpha = 0.4
-            for img in imgs:
-                im_ok = img[ok_key]
-                img[ok_key] = alpha*im_ok + (1-alpha)*colors[key]*np.ones_like(im_ok)
-
-    return imgs[0].astype(np.uint8), imgs[1].astype(np.uint8)
 
 
 def init_networks(paths):
@@ -172,3 +184,51 @@ def add_to_predict_queue(_parent, start, end, filelist=None, queue=None):
         raise RuntimeError("all arguments should be set !")
     for i in range(start, end+1):
         queue.put(filelist[i])
+
+
+
+@jit(nopython=True)
+def rotate3d(vec, rot_mat):
+    """Gets rotation matrix from angle and applies it."""
+    return (rot_mat@vec.T).T
+@jit(nopython=True)
+def rotateX(theta, vec):
+    rot_mat = np.array([
+        [1.,0.,0.,],
+        [0.,np.cos(theta), -np.sin(theta)],
+        [0.,np.sin(theta),  np.cos(theta)],
+    ])
+    return rotate3d(vec, rot_mat)
+@jit(nopython=True)
+def rotateY(theta, vec):
+    rot_mat = np.array([
+        [np.cos(theta),0., np.sin(theta)],
+        [0.,1.,0.,],
+        [-np.sin(theta),0.,  np.cos(theta)],
+    ])
+    return rotate3d(vec, rot_mat)
+@jit(nopython=True)
+def rotateZ(theta, vec):
+    rot_mat = np.array([
+        [np.cos(theta), -np.sin(theta),0.],
+        [np.sin(theta),  np.cos(theta),0.],
+        [0.,0.,1.],
+    ])
+    return rotate3d(vec, rot_mat)
+
+def fast_twconf(pcd, cfg): # about 5~7x faster
+    try:
+        height = cfg["camera"].get("height", 2.6)
+    except KeyError:
+        raise ValueError("config doesn't contain camera")
+    angles = (
+        180-cfg["camera"]["inclination"], cfg["camera"]["lateral_inclination"]
+    )
+    alpha, beta = (np.radians(a) for a in angles)
+    pcd = pcd.astype(np.float)
+    pcd = rotateX(alpha, pcd)
+    pcd = rotateZ(np.pi, pcd)
+    pcd = rotateY(beta,  pcd)
+    pcd[:,-1] = pcd[:,-1]+height
+
+    return pcd

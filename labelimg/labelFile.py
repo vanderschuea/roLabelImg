@@ -32,8 +32,8 @@ def convertPoints2RotatedBndBox(shape):
     return (round(cx,4),round(cy,4),round(w,4),round(h,4),round(angle,6))
 
 
-def saveKaspardFormat(filename, shapes, default_labels):
-    writer = KaspardWriter(filename, default_labels=default_labels)
+def saveKaspardFormat(filename, shapes, camCfg, default_labels):
+    writer = KaspardWriter(filename, camCfg, default_labels=default_labels)
 
     for shape in shapes:
         points = shape["points"]
@@ -50,12 +50,13 @@ def saveKaspardFormat(filename, shapes, default_labels):
 
 def readKaspardFormat(filename, default_labels):
     reader = KaspardReader(filename, default_labels=default_labels)
-    return reader.getShapes()
+    return reader.getShapes(), reader.getConfig()["camera"]
 
 class KaspardWriter:
-    def __init__(self, filename, default_labels=None):
+    def __init__(self, filename, camCfg, default_labels=None):
         self.filename = filename
         self.roboxlist = []
+        self.camCfg = camCfg
 
     def add_bbox(self, cx, cy, w, h, angle, name, difficult=None):
         robndbox = {'centerX': float(cx), 'centerY': float(cy), 'width': float(w), 'length': float(h),
@@ -70,7 +71,8 @@ class KaspardWriter:
     def save(self, targetfile=None, oldConfig=None):
         if oldConfig is None:
             oldConfig = {}
-        config = {"camera": oldConfig["camera"]}
+        cam = {**oldConfig["camera"], **self.camCfg}
+        config = {"camera": cam}
         self.append_objects(config)
 
         if targetfile is None:

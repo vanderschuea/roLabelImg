@@ -205,8 +205,6 @@ class Shape(object):
             path.addEllipse(point, d / 2.0, d / 2.0)
         else:
             assert False, "unsupported vertex shape"
-    # def drawVertex(self, path, center):
-    #     pass
 
     def nearestVertex(self, point, epsilon):
         for i, p in enumerate(self.points):
