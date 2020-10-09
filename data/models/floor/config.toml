@@ -1,7 +1,7 @@
 version = 1
 augmentation_function = 'default'
-type = 'Grid_FloorCompute'
-act_time = '9'
+type = 'v1-floor2'
+act_time = '0'
 
 [network]
 type = 'conf_unet'
@@ -9,11 +9,14 @@ bn = true
 block = 'residual'
 conv_transpose = false
 last_act = 'linear'
-big_drop = 0.2
-small_drop = 0.1
+big_drop = 0.4
+small_drop = 0.2
 se_ratio = 16
-input_format = ['image', 'depth_xyztcoZzL_3']
-output_format = ['mask_normalYdgYOs']
+input_format = ['image', 'depth_xyz_3']
+output_format = ['mask_normal']
+multi_input = true
+n_params = 2735177.0
+n_ops = 16223598592.0
 
 [network.architecture]
 first = 32
@@ -28,23 +31,29 @@ width = [72, 64, 64]
 repeat = [2, 2, 1]
 
 [training]
-batch_size = 11
-accumulation = 3
-loss = ['CrossEntropyLoss', 'MSELoss', 'MSELoss']
-n_epochs = 60
+batch_size = 32
+accumulation = 1
+loss = ['CrossEntropyLoss']
+n_epochs = 80
 type = 'default'
 
 [training.optimizer]
-lr = 0.0005
+lr = 0.001
 type = 'AdamW'
-weight_decay = 1e-6
+weight_decay = 1e-5
+
+[training.weight_init]
+sampling = 'kaiming'
+distribution = 'normal'
+fan_mode = 'fan_in'
 
 [training.scheduler]
 type = 'MultiStepLR'
-milestones = [20, 40]
+milestones = [23, 40]
 gamma = 0.1
 
 [val_dataset]
+type = 'Default'
 
 [test_dataset]
 type = 'Default'
@@ -53,13 +62,15 @@ dimensions = [1, 128, 192]
 
 [dataset]
 type = 'Default'
-dtypes = ['image', 'depth_xyztcoZzL', 'mask_normalYdgYOs']
+dtypes = ['image', 'depth_xyz', 'mask_normal']
 resize = 'crop3'
-name = 'tmp_0eihx3jg'
-auto_weights = false
+name = 'tmp_sxuasm0i'
 classes = ['floor', 'bed', '', '']
 channels_first = true
 dimensions = [1, 128, 128]
+
+[dataset.mask]
+weights = [0.5, 1.0, 1.5]
 
 [augmentation]
 horizontal_flip = 0.5
@@ -67,12 +78,12 @@ zoom_range = 0.2
 
 [saves]
 save_best_only = true
-path = 'logs/2019-12-22T162215_Grid_FloorCompute/Clairval/tmp'
+path = 'logs/2020-10-07T165125_v1-floor2/nofold/tmp'
 monitor = 'val_mask_miou'
-act_time = '9'
+act_time = '0'
 
 [git]
 branch = 'master'
-commit = 'ad30a88991a8c70e877063188ebc92b7ae9535cb'
-modified = ['configs/base.json', 'configs/defaults.json', 'kapnet/models/double_net.py']
-diff = 'logs/2019-12-22T162215_Grid_FloorCompute/Clairval/tmp/9/diff.patch'
+commit = 'a2c2215960b2df59c707143555be3c1460217447'
+modified = ['configs/v1_floor.toml']
+diff = '/home/users/a/v/avander/KapNet/logs/2020-10-07T165125_v1-floor2/nofold/tmp/0/diff.patch'

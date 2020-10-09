@@ -1,22 +1,22 @@
 version = 1
 augmentation_function = 'default'
-type = 'SGrid_BedCompute_fused+SM'
+type = 'v1-bed2'
 act_time = '0'
 
 [network]
-type = 'fusion_net'
+type = 'conf_unet'
 bn = true
 block = 'residual'
 conv_transpose = false
 last_act = 'linear'
-big_drop = 0.3
-small_drop = 0.15
+big_drop = 0.4
+small_drop = 0.2
 se_ratio = 16
 input_format = ['image', 'depth_height_1', 'depth_normalsxyzheight_3']
-output_format = ['mask_normal3']
-multi_scale = false
-n_params = 36640591872.0
-n_ops = 8644447.0
+output_format = ['mask_normal']
+multi_input = true
+n_params = 2735561.0
+n_ops = 16235132928.0
 
 [network.architecture]
 first = 32
@@ -25,17 +25,16 @@ width = [64, 72, 96, 128, 72, 64, 64]
 [network.architecture.enc]
 width = [64, 72, 96, 128]
 repeat = [2, 2, 3, 4]
-dilation = [1, 1, 1, 1]
 
 [network.architecture.dec]
 width = [72, 64, 64]
 repeat = [2, 2, 1]
 
 [training]
-batch_size = 8
-accumulation = 4
+batch_size = 32
+accumulation = 1
 loss = ['CrossEntropyLoss']
-n_epochs = 70
+n_epochs = 80
 type = 'default'
 
 [training.optimizer]
@@ -43,12 +42,18 @@ lr = 0.001
 type = 'AdamW'
 weight_decay = 1e-5
 
+[training.weight_init]
+sampling = 'kaiming'
+distribution = 'normal'
+fan_mode = 'fan_in'
+
 [training.scheduler]
 type = 'MultiStepLR'
-milestones = [30, 55]
+milestones = [23, 40]
 gamma = 0.1
 
 [val_dataset]
+type = 'Default'
 
 [test_dataset]
 type = 'Default'
@@ -57,9 +62,9 @@ dimensions = [1, 128, 192]
 
 [dataset]
 type = 'Default'
-dtypes = ['image', 'depth_height', 'depth_normalsxyzheight', 'mask_normal3']
+dtypes = ['image', 'depth_height', 'depth_normalsxyzheight', 'mask_normal']
 resize = 'crop3'
-name = 'tmp_ivhkvhx8'
+name = 'tmp_6f472x45'
 classes = ['floor', 'bed', '', '']
 channels_first = true
 dimensions = [1, 128, 128]
@@ -73,12 +78,12 @@ zoom_range = 0.2
 
 [saves]
 save_best_only = true
-path = 'logs/2020-02-06T161634_SGrid_BedCompute_fused+SM/Clairval/tmp'
+path = 'logs/2020-10-07T165311_v1-bed2/nofold/tmp'
 monitor = 'val_mask_miou'
 act_time = '0'
 
 [git]
 branch = 'master'
-commit = 'd06340c31d2bfac30706008fc6501774fd55d411'
-modified = ['configs/base.json', 'configs/defaults.json', 'kapnet/annotations/segmentation.py']
-diff = 'logs/2020-02-06T161634_SGrid_BedCompute_fused+SM/Clairval/tmp/0/diff.patch'
+commit = 'a2c2215960b2df59c707143555be3c1460217447'
+modified = ['configs/v1_bed.toml', 'configs/v1_floor.toml']
+diff = '/home/users/a/v/avander/KapNet/logs/2020-10-07T165311_v1-bed2/nofold/tmp/0/diff.patch'

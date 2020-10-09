@@ -1,0 +1,89 @@
+version = 1
+augmentation_function = 'default'
+type = 'v1-floor-img_only'
+act_time = '0'
+
+[network]
+type = 'conf_unet'
+bn = true
+block = 'residual'
+conv_transpose = false
+last_act = 'linear'
+big_drop = 0.4
+small_drop = 0.2
+se_ratio = 16
+input_format = ['image']
+output_format = ['mask_normal']
+multi_input = true
+n_params = 2724905.0
+n_ops = 15889102848.0
+
+[network.architecture]
+first = 32
+width = [64, 72, 96, 128, 72, 64, 64]
+
+[network.architecture.enc]
+width = [64, 72, 96, 128]
+repeat = [2, 2, 3, 4]
+
+[network.architecture.dec]
+width = [72, 64, 64]
+repeat = [2, 2, 1]
+
+[training]
+batch_size = 32
+accumulation = 1
+loss = ['CrossEntropyLoss']
+n_epochs = 80
+type = 'default'
+
+[training.optimizer]
+lr = 0.001
+type = 'AdamW'
+weight_decay = 1e-5
+
+[training.weight_init]
+sampling = 'kaiming'
+distribution = 'normal'
+fan_mode = 'fan_in'
+
+[training.scheduler]
+type = 'MultiStepLR'
+milestones = [23, 40]
+gamma = 0.1
+
+[val_dataset]
+type = 'Default'
+
+[test_dataset]
+type = 'Default'
+resize = 'later'
+dimensions = [1, 128, 192]
+
+[dataset]
+type = 'Default'
+dtypes = ['image', 'mask_normal']
+resize = 'crop3'
+name = 'tmp_1xyy5mcp'
+classes = ['floor', 'bed', '', '']
+channels_first = true
+dimensions = [1, 128, 128]
+
+[dataset.mask]
+weights = [0.5, 1.0, 1.5]
+
+[augmentation]
+horizontal_flip = 0.5
+zoom_range = 0.2
+
+[saves]
+save_best_only = true
+path = 'logs/2020-10-07T170058_v1-floor-img_only/nofold/tmp'
+monitor = 'val_mask_miou'
+act_time = '0'
+
+[git]
+branch = 'master'
+commit = 'a2c2215960b2df59c707143555be3c1460217447'
+modified = ['configs/v1_bed.toml', 'configs/v1_floor.toml']
+diff = '/home/users/a/v/avander/KapNet/logs/2020-10-07T170058_v1-floor-img_only/nofold/tmp/0/diff.patch'
