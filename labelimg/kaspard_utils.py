@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 from numba import jit
 from collections import defaultdict
-from kapnet.training.predict import init as predict_init, predict_floor, predict_object
+from kapnet.predict import init as predict_init, predict_floor, predict_object
 from kapnet.annotations.image import generate_sample as image_generate_sample
 import multiprocessing as mp
 from multiprocessing import Process, Queue
